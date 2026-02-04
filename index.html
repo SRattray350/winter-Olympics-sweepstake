@@ -36,18 +36,8 @@
   <table id="tbl"></table>
 
 <script>
-  // Paste your published Leaderboard CSV URL here:
+  // Your published Leaderboard CSV URL:
   const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTv_B6jdgEx4q3c9uhSISHuVdhUfubFMblfU0FJXop_rv7jniIO_y44H-ARvrjassAOOi0xhDIgxMYW/pub?gid=37582016&single=true&output=csv";
-
-  // Expected CSV columns (0-based):
-  // 0 Player, 1 Gold, 2 Silver, 3 Bronze, 4 Points,
-  // 5 Country 1, 6 Country 2, 7 Country 3,
-  // 8 Flag 1 (emoji), 9 Flag 2 (emoji), 10 Flag 3 (emoji),
-  // 11 ISO1, 12 ISO2, 13 ISO3
-  //
-  // On the website we will HIDE emoji flags + ISO columns,
-  // and instead show real flag images next to Country 1/2/3.
-  const HIDE_COLS = new Set([8, 9, 10, 11, 12, 13]);
 
   // Cache-bust so GitHub Pages always shows fresh data
   const csvWithNoCache = () => CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
@@ -88,32 +78,59 @@
   function flagImg(code) {
     if (!code) return "";
     const c = String(code).trim().toLowerCase();
-    // flagcdn uses ISO2 lowercase codes
     return `<img class="flag"
                  src="https://flagcdn.com/w20/${c}.png"
                  srcset="https://flagcdn.com/w40/${c}.png 2x"
                  width="20" height="15" alt="${c}">`;
   }
 
-  let fullData = [];
-  let fullHeaders = [];
+  function indexMap(headers) {
+    const m = new Map();
+    headers.forEach((h, i) => m.set(String(h).trim().toLowerCase(), i));
+    return m;
+  }
+
+  function isHiddenHeader(h) {
+    const x = String(h).trim().toLowerCase();
+    return x.startsWith("flag") || x.startsWith("iso");
+  }
 
   function renderTable(headers, data) {
     const tbl = document.getElementById("tbl");
     tbl.innerHTML = "";
 
-    // Decide which columns to keep visible
-    const keptIdx = headers.map((_, i) => i).filter(i => !HIDE_COLS.has(i));
+    const hmap = indexMap(headers);
+
+    // Find key columns by name (case/space tolerant)
+    const idxPlayer = hmap.get("player") ?? 0;
+    const idxGold   = hmap.get("gold");
+    const idxSilver = hmap.get("silver");
+    const idxBronze = hmap.get("bronze");
+    const idxPoints = hmap.get("points");
+
+    const idxC1 = hmap.get("country 1");
+    const idxC2 = hmap.get("country 2");
+    const idxC3 = hmap.get("country 3");
+
+    const idxISO1 = hmap.get("iso1");
+    const idxISO2 = hmap.get("iso2");
+    const idxISO3 = hmap.get("iso3");
+
+    // Keep only non-hidden columns
+    const keptIdx = headers.map((h, i) => ({h, i}))
+      .filter(x => !isHiddenHeader(x.h))
+      .map(x => x.i);
+
     const keptHeaders = keptIdx.map(i => headers[i]);
 
     const thead = document.createElement("thead");
     const trh = document.createElement("tr");
 
-    keptHeaders.forEach((h, visibleIdx) => {
+    keptHeaders.forEach(h => {
       const th = document.createElement("th");
       th.textContent = h;
-      // numeric columns after filtering: Gold/Silver/Bronze/Points are still visible indices 1..4
-      if (visibleIdx >= 1 && visibleIdx <= 4) th.classList.add("num");
+      const hl = String(h).trim().toLowerCase();
+      if (hl === "gold" || hl === "silver" || hl === "bronze" || hl === "points") th.classList.add("num");
       trh.appendChild(th);
     });
 
@@ -125,17 +142,20 @@
     data.forEach(r => {
       const tr = document.createElement("tr");
 
-      keptIdx.forEach((colIdx, visibleIdx) => {
+      keptIdx.forEach(i => {
         const td = document.createElement("td");
+        const headerName = String(headers[i]).trim().toLowerCase();
 
-        // Add image flags into Country columns using ISO columns.
-        // Country cols are 5,6,7; ISO cols are 11,12,13
-        if (colIdx === 5) td.innerHTML = flagImg(r[11]) + (r[5] || "");
-        else if (colIdx === 6) td.innerHTML = flagImg(r[12]) + (r[6] || "");
-        else if (colIdx === 7) td.innerHTML = flagImg(r[13]) + (r[7] || "");
-        else td.textContent = r[colIdx] || "";
+        // Inject flag images into Country columns using ISO codes
+        if (i === idxC1 && idxISO1 != null) td.innerHTML = flagImg(r[idxISO1]) + (r[idxC1] || "");
+        else if (i === idxC2 && idxISO2 != null) td.innerHTML = flagImg(r[idxISO2]) + (r[idxC2] || "");
+        else if (i === idxC3 && idxISO3 != null) td.innerHTML = flagImg(r[idxISO3]) + (r[idxC3] || "");
+        else td.textContent = r[i] || "";
 
-        if (visibleIdx >= 1 && visibleIdx <= 4) td.classList.add("num");
+        if (headerName === "gold" || headerName === "silver" || headerName === "bronze" || headerName === "points") {
+          td.classList.add("num");
+        }
+
         tr.appendChild(td);
       });
 
@@ -144,6 +164,9 @@
 
     tbl.appendChild(tbody);
   }
+
+  let fullHeaders = [];
+  let fullData = [];
 
   async function load() {
     const status = document.getElementById("status");
@@ -160,29 +183,35 @@
     }
 
     const headers = rows[0];
+    const hmap = indexMap(headers);
+
+    const idxPlayer = hmap.get("player") ?? 0;
+    const idxGold   = hmap.get("gold");
+    const idxSilver = hmap.get("silver");
+    const idxBronze = hmap.get("bronze");
+    const idxPoints = hmap.get("points");
+
     const data = rows.slice(1)
-      .filter(r => String(r[0] || "").trim() !== "")
+      .filter(r => String(r[idxPlayer] || "").trim() !== "")
       .map(r => {
         const padded = [...r];
-        // Ensure we have enough columns up to ISO3 (index 13)
-        while (padded.length < 14) padded.push("");
+        while (padded.length < headers.length) padded.push("");
         return padded;
       })
-      // Sort like an Olympic table: Points, Gold, Silver, Bronze
+      // Sort: Points, Gold, Silver, Bronze, Player
       .sort((a,b) =>
-        toNumber(b[4]) - toNumber(a[4]) ||
-        toNumber(b[1]) - toNumber(a[1]) ||
-        toNumber(b[2]) - toNumber(a[2]) ||
-        toNumber(b[3]) - toNumber(a[3]) ||
-        String(a[0]).localeCompare(String(b[0]))
+        (idxPoints != null ? toNumber(b[idxPoints]) - toNumber(a[idxPoints]) : 0) ||
+        (idxGold   != null ? toNumber(b[idxGold])   - toNumber(a[idxGold])   : 0) ||
+        (idxSilver != null ? toNumber(b[idxSilver]) - toNumber(a[idxSilver]) : 0) ||
+        (idxBronze != null ? toNumber(b[idxBronze]) - toNumber(a[idxBronze]) : 0) ||
+        String(a[idxPlayer]).localeCompare(String(b[idxPlayer]))
       );
 
     fullHeaders = headers;
     fullData = data;
 
-    // Apply current search filter (if any) before rendering
     const q = document.getElementById("search").value.trim().toLowerCase();
-    const filtered = !q ? fullData : fullData.filter(r => String(r[0]).toLowerCase().includes(q));
+    const filtered = !q ? fullData : fullData.filter(r => String(r[idxPlayer]).toLowerCase().includes(q));
 
     renderTable(fullHeaders, filtered);
 
@@ -196,7 +225,7 @@
   document.getElementById("search").addEventListener("input", load);
 
   load();
-  setInterval(load, 60_000); // refresh every 60 seconds
+  setInterval(load, 60_000);
 </script>
 </body>
 </html>
