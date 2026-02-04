@@ -10,20 +10,20 @@
     margin: 0;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 
-    /* IMPORTANT: rename your uploaded image to background.jpg OR edit this filename */
+    /* Your repo background */
     background:
-      linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
-      url("./background.jpg");
-
+      linear-gradient(rgba(0,0,0,0.60), rgba(0,0,0,0.60)),
+      url("background.png");
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
+
     min-height: 100vh;
     color: #111;
   }
 
   .wrap {
-    max-width: 1000px;
+    max-width: 1100px;
     margin: 0 auto;
     padding: 24px;
   }
@@ -36,7 +36,7 @@
   }
 
   h1 { margin: 0 0 6px; }
-  .sub { color: #555; margin-bottom: 14px; }
+  .sub { color: #555; margin: 0 0 14px; }
 
   .row {
     display: flex;
@@ -59,7 +59,7 @@
     border: 1px solid #ddd;
     background: #fff;
     cursor: pointer;
-    font-weight: 600;
+    font-weight: 650;
   }
   button:hover { background: #f4f4f4; }
 
@@ -73,9 +73,14 @@
   }
 
   table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 10px 8px; border-bottom: 1px solid #e0e0e0; }
-  th { text-align: left; font-weight: 700; }
+  th, td { padding: 10px 8px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+  th { text-align: left; font-weight: 800; }
+
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .countryCell {
+    white-space: nowrap;
+  }
 
   img.flag {
     vertical-align: middle;
@@ -93,7 +98,7 @@
   <div class="card">
     <h1>Office Winter Olympics Sweepstake</h1>
     <p class="sub">
-      Live leaderboard <span id="status" class="pill">Loading…</span>
+      Live leaderboard (auto-refreshing). <span id="status" class="pill">Loading…</span>
     </p>
 
     <div class="row">
@@ -121,107 +126,79 @@ const VIDEO_ID = "zRs58D34OLY";
 /* ============================
    HELPERS
 ============================ */
-const csvNoCache = () => CSV_URL + "&t=" + Date.now();
+const csvNoCache = () => CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
 
 function parseCSV(text) {
   const rows = [];
   let row = [], field = "", inQuotes = false;
+
   for (let i = 0; i < text.length; i++) {
-    const c = text[i], n = text[i+1];
-    if (c === '"' && inQuotes && n === '"') { field += '"'; i++; continue; }
+    const c = text[i];
+    const next = text[i + 1];
+
+    if (c === '"' && inQuotes && next === '"') { field += '"'; i++; continue; }
     if (c === '"') { inQuotes = !inQuotes; continue; }
-    if (c === "," && !inQuotes) { row.push(field); field=""; continue; }
+
+    if (c === "," && !inQuotes) { row.push(field); field = ""; continue; }
     if ((c === "\n" || c === "\r") && !inQuotes) {
-      if (c === "\r" && n === "\n") i++;
-      row.push(field); rows.push(row);
-      row=[]; field=""; continue;
+      if (c === "\r" && next === "\n") i++;
+      row.push(field);
+      if (row.some(x => String(x).trim() !== "")) rows.push(row);
+      row = []; field = "";
+      continue;
     }
     field += c;
   }
-  row.push(field); rows.push(row);
-  return rows.filter(r => r.some(x => String(x).trim() !== ""));
+
+  row.push(field);
+  if (row.some(x => String(x).trim() !== "")) rows.push(row);
+  return rows;
 }
 
-function toNum(x){
-  const n = Number(String(x).replace(/[^\d.-]/g,""));
+function toNum(x) {
+  const n = Number(String(x ?? "").replace(/[^\d.-]/g, ""));
   return Number.isFinite(n) ? n : 0;
 }
 
-function flag(code){
-  if(!code) return "";
-  const c = String(code).trim().toLowerCase();
-  return `<img class="flag" src="https://flagcdn.com/w20/${c}.png"
-          srcset="https://flagcdn.com/w40/${c}.png 2x"
-          width="20" height="15" alt="${c}">`;
-}
-
-function headerMap(headers){
+function headerMap(headers) {
   const m = new Map();
-  headers.forEach((h, i) => m.set(String(h).trim().toLowerCase(), i)); // TRIM is key
+  headers.forEach((h, i) => m.set(String(h).trim().toLowerCase(), i)); // TRIM fixes "Bronze "
   return m;
 }
 
+function flag(code) {
+  if (!code) return "";
+  const c = String(code).trim().toLowerCase();
+  return `<img class="flag"
+    src="https://flagcdn.com/w20/${c}.png"
+    srcset="https://flagcdn.com/w40/${c}.png 2x"
+    width="20" height="15" alt="${c}">`;
+}
+
 /* ============================
-   LOAD & RENDER
+   RENDER
 ============================ */
-let fullHeaders = [];
-let fullData = [];
+let cachedHeaders = [];
+let cachedRows = [];
 
-async function load(){
-  document.getElementById("status").textContent = "Updating…";
-
-  const res = await fetch(csvNoCache(), {cache:"no-store"});
-  const text = await res.text();
-  const rows = parseCSV(text);
-  if(rows.length < 2) {
-    document.getElementById("status").textContent = "No data";
-    return;
-  }
-
-  const headers = rows[0];
+function render(headers, rows) {
   const h = headerMap(headers);
 
-  // Indexes (robust to trailing spaces)
   const idxPlayer = h.get("player") ?? 0;
   const idxGold   = h.get("gold");
   const idxSilver = h.get("silver");
   const idxBronze = h.get("bronze");
-  const idxTotal  = h.get("total") ?? h.get("points"); // fallback if you haven't added Total column yet
+  const idxPoints = h.get("points");
+  const idxFav    = h.get("favourite sport") ?? h.get("favorite sport");
+  const idxBonus  = h.get("bonus");
+  const idxTotal  = h.get("total");
 
-  const idxC1  = h.get("country 1");
-  const idxC2  = h.get("country 2");
-  const idxC3  = h.get("country 3");
+  const idxC1 = h.get("country 1");
+  const idxC2 = h.get("country 2");
+  const idxC3 = h.get("country 3");
   const idxISO1 = h.get("iso1");
   const idxISO2 = h.get("iso2");
   const idxISO3 = h.get("iso3");
-
-  const data = rows.slice(1).filter(r => String(r[idxPlayer] || "").trim() !== "");
-
-  // Sort by Total (or Points), then Gold/Silver/Bronze
-  data.sort((a,b) =>
-    (idxTotal  != null ? toNum(b[idxTotal])  - toNum(a[idxTotal])  : 0) ||
-    (idxGold   != null ? toNum(b[idxGold])   - toNum(a[idxGold])   : 0) ||
-    (idxSilver != null ? toNum(b[idxSilver]) - toNum(a[idxSilver]) : 0) ||
-    (idxBronze != null ? toNum(b[idxBronze]) - toNum(a[idxBronze]) : 0) ||
-    String(a[idxPlayer]).localeCompare(String(b[idxPlayer]))
-  );
-
-  fullHeaders = headers;
-  fullData = data;
-
-  applySearchAndRender({
-    idxPlayer, idxGold, idxSilver, idxBronze, idxTotal,
-    idxC1, idxC2, idxC3, idxISO1, idxISO2, idxISO3
-  });
-
-  document.getElementById("updated").textContent =
-    "Updated " + new Date().toLocaleTimeString();
-  document.getElementById("status").textContent = "Live";
-}
-
-function applySearchAndRender(idxs){
-  const q = document.getElementById("search").value.trim().toLowerCase();
-  const filtered = !q ? fullData : fullData.filter(r => String(r[idxs.idxPlayer]).toLowerCase().includes(q));
 
   const tbl = document.getElementById("tbl");
   tbl.innerHTML = "";
@@ -233,66 +210,137 @@ function applySearchAndRender(idxs){
       <th class="num">Gold</th>
       <th class="num">Silver</th>
       <th class="num">Bronze</th>
-      <th class="num">${(idxs.idxTotal != null && String(fullHeaders[idxs.idxTotal]).trim()) || "Total"}</th>
-      <th>Countries</th>
+      <th class="num">Points</th>
+      <th>Country 1</th>
+      <th>Country 2</th>
+      <th>Country 3</th>
+      <th>Favourite sport</th>
+      <th class="num">Bonus</th>
+      <th class="num">Total</th>
     </tr>`;
   tbl.appendChild(thead);
 
   const tbody = document.createElement("tbody");
-  filtered.forEach(r => {
-    const gold = idxs.idxGold != null ? (r[idxs.idxGold] ?? "0") : "0";
-    const silver = idxs.idxSilver != null ? (r[idxs.idxSilver] ?? "0") : "0";
-    const bronze = idxs.idxBronze != null ? (r[idxs.idxBronze] ?? "0") : "0";
-    const total = idxs.idxTotal != null ? (r[idxs.idxTotal] ?? "0") : "0";
 
-    const c1 = idxs.idxC1 != null ? (r[idxs.idxC1] ?? "") : "";
-    const c2 = idxs.idxC2 != null ? (r[idxs.idxC2] ?? "") : "";
-    const c3 = idxs.idxC3 != null ? (r[idxs.idxC3] ?? "") : "";
-
-    const iso1 = idxs.idxISO1 != null ? r[idxs.idxISO1] : "";
-    const iso2 = idxs.idxISO2 != null ? r[idxs.idxISO2] : "";
-    const iso3 = idxs.idxISO3 != null ? r[idxs.idxISO3] : "";
-
+  rows.forEach(r => {
     const tr = document.createElement("tr");
+
+    const player = r[idxPlayer] ?? "";
+
+    const gold   = idxGold   != null ? (r[idxGold]   ?? 0) : 0;
+    const silver = idxSilver != null ? (r[idxSilver] ?? 0) : 0;
+    const bronze = idxBronze != null ? (r[idxBronze] ?? 0) : 0;
+    const points = idxPoints != null ? (r[idxPoints] ?? 0) : 0;
+
+    const c1 = idxC1 != null ? (r[idxC1] ?? "") : "";
+    const c2 = idxC2 != null ? (r[idxC2] ?? "") : "";
+    const c3 = idxC3 != null ? (r[idxC3] ?? "") : "";
+
+    const iso1 = idxISO1 != null ? (r[idxISO1] ?? "") : "";
+    const iso2 = idxISO2 != null ? (r[idxISO2] ?? "") : "";
+    const iso3 = idxISO3 != null ? (r[idxISO3] ?? "") : "";
+
+    const fav   = idxFav   != null ? (r[idxFav]   ?? "") : "";
+    const bonus = idxBonus != null ? (r[idxBonus] ?? 0) : 0;
+
+    // If Total column exists, use it. Otherwise compute as points+bonus
+    const total = idxTotal != null ? (r[idxTotal] ?? 0) : (toNum(points) + toNum(bonus));
+
     tr.innerHTML = `
-      <td>${r[idxs.idxPlayer]}</td>
+      <td>${player}</td>
       <td class="num">${gold}</td>
       <td class="num">${silver}</td>
       <td class="num">${bronze}</td>
+      <td class="num">${points}</td>
+
+      <td class="countryCell">${flag(iso1)}${c1}</td>
+      <td class="countryCell">${flag(iso2)}${c2}</td>
+      <td class="countryCell">${flag(iso3)}${c3}</td>
+
+      <td>${fav}</td>
+      <td class="num">${bonus}</td>
       <td class="num"><b>${total}</b></td>
-      <td>
-        ${flag(iso1)}${c1}&nbsp;&nbsp;
-        ${flag(iso2)}${c2}&nbsp;&nbsp;
-        ${flag(iso3)}${c3}
-      </td>`;
+    `;
     tbody.appendChild(tr);
   });
+
   tbl.appendChild(tbody);
 }
 
-document.getElementById("refresh").onclick = load;
-document.getElementById("search").addEventListener("input", () => {
-  // re-render from cached data without refetching
-  const headers = fullHeaders;
-  if (!headers.length) return;
+/* ============================
+   LOAD
+============================ */
+async function load() {
+  document.getElementById("status").textContent = "Updating…";
+
+  const res = await fetch(csvNoCache(), { cache: "no-store" });
+  const text = await res.text();
+  const rows = parseCSV(text).filter(r => r.some(c => String(c).trim() !== ""));
+
+  if (rows.length < 2) {
+    document.getElementById("status").textContent = "No data";
+    return;
+  }
+
+  const headers = rows[0];
   const h = headerMap(headers);
-  applySearchAndRender({
-    idxPlayer: h.get("player") ?? 0,
-    idxGold: h.get("gold"),
-    idxSilver: h.get("silver"),
-    idxBronze: h.get("bronze"),
-    idxTotal: h.get("total") ?? h.get("points"),
-    idxC1: h.get("country 1"),
-    idxC2: h.get("country 2"),
-    idxC3: h.get("country 3"),
-    idxISO1: h.get("iso1"),
-    idxISO2: h.get("iso2"),
-    idxISO3: h.get("iso3"),
+
+  const idxPlayer = h.get("player") ?? 0;
+  const idxGold   = h.get("gold");
+  const idxSilver = h.get("silver");
+  const idxBronze = h.get("bronze");
+  const idxPoints = h.get("points");
+  const idxBonus  = h.get("bonus");
+  const idxTotal  = h.get("total");
+
+  // Clean + pad rows
+  let data = rows.slice(1)
+    .filter(r => String(r[idxPlayer] ?? "").trim() !== "")
+    .map(r => {
+      const padded = [...r];
+      while (padded.length < headers.length) padded.push("");
+      return padded;
+    });
+
+  // Sort: Total (if present) else Points+Bonus
+  data.sort((a, b) => {
+    const totalA = idxTotal != null ? toNum(a[idxTotal]) : (toNum(idxPoints != null ? a[idxPoints] : 0) + toNum(idxBonus != null ? a[idxBonus] : 0));
+    const totalB = idxTotal != null ? toNum(b[idxTotal]) : (toNum(idxPoints != null ? b[idxPoints] : 0) + toNum(idxBonus != null ? b[idxBonus] : 0));
+
+    return (
+      totalB - totalA ||
+      (idxGold   != null ? toNum(b[idxGold])   - toNum(a[idxGold])   : 0) ||
+      (idxSilver != null ? toNum(b[idxSilver]) - toNum(a[idxSilver]) : 0) ||
+      (idxBronze != null ? toNum(b[idxBronze]) - toNum(a[idxBronze]) : 0) ||
+      String(a[idxPlayer]).localeCompare(String(b[idxPlayer]))
+    );
   });
-});
+
+  cachedHeaders = headers;
+  cachedRows = data;
+
+  applySearch();
+
+  document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString();
+  document.getElementById("status").textContent = "Live";
+}
+
+function applySearch() {
+  if (!cachedHeaders.length) return;
+
+  const h = headerMap(cachedHeaders);
+  const idxPlayer = h.get("player") ?? 0;
+
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const filtered = !q ? cachedRows : cachedRows.filter(r => String(r[idxPlayer]).toLowerCase().includes(q));
+  render(cachedHeaders, filtered);
+}
+
+document.getElementById("refresh").onclick = load;
+document.getElementById("search").addEventListener("input", applySearch);
 
 load();
-setInterval(load, 60000);
+setInterval(load, 60_000);
 
 /* ============================
    MUSIC
@@ -300,7 +348,7 @@ setInterval(load, 60000);
 let playing = false;
 document.getElementById("musicBtn").onclick = () => {
   const yt = document.getElementById("yt");
-  if(!playing){
+  if (!playing) {
     yt.innerHTML =
       `<iframe width="0" height="0"
         src="https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&loop=1&playlist=${VIDEO_ID}"
