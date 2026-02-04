@@ -87,6 +87,35 @@
     margin-right: 6px;
     border-radius: 2px;
     border: 1px solid rgba(0,0,0,0.15);
+    width: 20px;
+    height: 15px;
+  }
+
+  /* medal badges for top 3 */
+  .medal {
+    display: inline-block;
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    border-radius: 50%;
+    margin-right: 8px;
+    font-size: 14px;
+    vertical-align: middle;
+  }
+  .medal.gold   { background: linear-gradient(#ffd700,#f0c000); color: #5a3700; }
+  .medal.silver { background: linear-gradient(#e8e8e8,#cfcfcf); color: #2b2b2b; }
+  .medal.bronze { background: linear-gradient(#c68a4b,#9b6a3a); color: #2b1400; }
+
+  .playerWithMedal { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* screen-reader-only helper if you want visible-less labels */
+  .sr-only {
+    position: absolute !important;
+    height: 1px; width: 1px;
+    overflow: hidden;
+    clip: rect(1px, 1px, 1px, 1px);
+    white-space: nowrap;
   }
 
   #yt { width: 0; height: 0; overflow: hidden; }
@@ -102,17 +131,18 @@
     </p>
 
     <div class="row">
-      <input id="search" placeholder="Search player…" />
+      <label for="search" class="sr-only">Search player</label>
+      <input id="search" placeholder="Search player…" aria-label="Search player" />
       <button id="refresh">Refresh</button>
-      <button id="musicBtn">🔥 Intense music</button>
+      <button id="musicBtn" aria-pressed="false">🔥 Intense music</button>
       <span id="updated" class="pill"></span>
     </div>
 
-    <table id="tbl"></table>
+    <table id="tbl" aria-live="polite"></table>
   </div>
 </div>
 
-<div id="yt"></div>
+<div id="yt" aria-hidden="true"></div>
 
 <script>
 /* ============================
@@ -166,22 +196,28 @@ function headerMap(headers) {
   return m;
 }
 
-function flag(code) {
-  if (!code) return "";
+function buildFlagImg(code) {
+  if (!code) return null;
   const c = String(code).trim().toLowerCase();
-  return `<img class="flag"
-    src="https://flagcdn.com/w20/${c}.png"
-    srcset="https://flagcdn.com/w40/${c}.png 2x"
-    width="20" height="15" alt="${c}">`;
+  // validate 2-letter iso-ish; if not 2 letters we'll still attempt but it may 404
+  if (!/^[a-z]{2}$/.test(c)) return null;
+  const img = document.createElement('img');
+  img.className = 'flag';
+  img.src = `https://flagcdn.com/w20/${c}.png`;
+  img.srcset = `https://flagcdn.com/w40/${c}.png 2x`;
+  img.width = 20; img.height = 15;
+  img.alt = c;
+  img.loading = 'lazy';
+  return img;
 }
 
 /* ============================
-   RENDER
+   RENDER (safe DOM creation)
 ============================ */
 let cachedHeaders = [];
-let cachedRows = [];
+let cachedRows = []; // array of { vals: [...], totalNum: number }
 
-function render(headers, rows) {
+function render(headers, dataRows) {
   const h = headerMap(headers);
 
   const idxPlayer = h.get("player") ?? 0;
@@ -203,6 +239,7 @@ function render(headers, rows) {
   const tbl = document.getElementById("tbl");
   tbl.innerHTML = "";
 
+  // build header
   const thead = document.createElement("thead");
   thead.innerHTML = `
     <tr>
@@ -222,15 +259,22 @@ function render(headers, rows) {
 
   const tbody = document.createElement("tbody");
 
-  rows.forEach(r => {
+  // Determine medal totals for ties: distinct totals sorted desc
+  const distinctTotals = Array.from(new Set(dataRows.map(r => r.totalNum))).sort((a,b) => b - a);
+  const goldTotal = distinctTotals[0];
+  const silverTotal = distinctTotals[1];
+  const bronzeTotal = distinctTotals[2];
+
+  dataRows.forEach((rObj, idx) => {
+    const r = rObj.vals;
     const tr = document.createElement("tr");
 
     const player = r[idxPlayer] ?? "";
 
-    const gold   = idxGold   != null ? (r[idxGold]   ?? 0) : 0;
-    const silver = idxSilver != null ? (r[idxSilver] ?? 0) : 0;
-    const bronze = idxBronze != null ? (r[idxBronze] ?? 0) : 0;
-    const points = idxPoints != null ? (r[idxPoints] ?? 0) : 0;
+    const gold   = idxGold   != null ? (r[idxGold]   ?? "") : "";
+    const silver = idxSilver != null ? (r[idxSilver] ?? "") : "";
+    const bronze = idxBronze != null ? (r[idxBronze] ?? "") : "";
+    const points = idxPoints != null ? (r[idxPoints] ?? "") : "";
 
     const c1 = idxC1 != null ? (r[idxC1] ?? "") : "";
     const c2 = idxC2 != null ? (r[idxC2] ?? "") : "";
@@ -241,26 +285,79 @@ function render(headers, rows) {
     const iso3 = idxISO3 != null ? (r[idxISO3] ?? "") : "";
 
     const fav   = idxFav   != null ? (r[idxFav]   ?? "") : "";
-    const bonus = idxBonus != null ? (r[idxBonus] ?? 0) : 0;
+    const bonus = idxBonus != null ? (r[idxBonus] ?? "") : "";
 
-    // If Total column exists, use it. Otherwise compute as points+bonus
-    const total = idxTotal != null ? (r[idxTotal] ?? 0) : (toNum(points) + toNum(bonus));
+    const totalNum = rObj.totalNum;
 
-    tr.innerHTML = `
-      <td>${player}</td>
-      <td class="num">${gold}</td>
-      <td class="num">${silver}</td>
-      <td class="num">${bronze}</td>
-      <td class="num">${points}</td>
+    // medal assignment based on numeric totals (ties get same medal)
+    let medalEl = null;
+    if (totalNum === goldTotal) {
+      medalEl = document.createElement('span');
+      medalEl.className = 'medal gold';
+      medalEl.setAttribute('aria-hidden', 'true');
+      medalEl.textContent = '🥇';
+    } else if (totalNum === silverTotal) {
+      medalEl = document.createElement('span');
+      medalEl.className = 'medal silver';
+      medalEl.setAttribute('aria-hidden', 'true');
+      medalEl.textContent = '🥈';
+    } else if (totalNum === bronzeTotal) {
+      medalEl = document.createElement('span');
+      medalEl.className = 'medal bronze';
+      medalEl.setAttribute('aria-hidden', 'true');
+      medalEl.textContent = '🥉';
+    }
 
-      <td class="countryCell">${flag(iso1)}${c1}</td>
-      <td class="countryCell">${flag(iso2)}${c2}</td>
-      <td class="countryCell">${flag(iso3)}${c3}</td>
+    // Player cell
+    const tdPlayer = document.createElement('td');
+    const wrap = document.createElement('span');
+    wrap.className = 'playerWithMedal';
+    if (medalEl) wrap.appendChild(medalEl);
+    const playerSpan = document.createElement('span');
+    playerSpan.className = 'playerName';
+    playerSpan.textContent = String(player);
+    wrap.appendChild(playerSpan);
+    tdPlayer.appendChild(wrap);
+    tr.appendChild(tdPlayer);
 
-      <td>${fav}</td>
-      <td class="num">${bonus}</td>
-      <td class="num"><b>${total}</b></td>
-    `;
+    const makeNumTd = (val) => {
+      const td = document.createElement('td');
+      td.className = 'num';
+      td.textContent = String(toNum(val));
+      return td;
+    };
+
+    tr.appendChild(makeNumTd(gold));
+    tr.appendChild(makeNumTd(silver));
+    tr.appendChild(makeNumTd(bronze));
+    tr.appendChild(makeNumTd(points));
+
+    const makeCountryTd = (name, iso) => {
+      const td = document.createElement('td');
+      td.className = 'countryCell';
+      const img = buildFlagImg(iso);
+      if (img) td.appendChild(img);
+      td.appendChild(document.createTextNode(String(name)));
+      return td;
+    };
+
+    tr.appendChild(makeCountryTd(c1, iso1));
+    tr.appendChild(makeCountryTd(c2, iso2));
+    tr.appendChild(makeCountryTd(c3, iso3));
+
+    const favTd = document.createElement('td');
+    favTd.textContent = String(fav);
+    tr.appendChild(favTd);
+
+    tr.appendChild(makeNumTd(bonus));
+
+    const totalTd = document.createElement('td');
+    totalTd.className = 'num';
+    const b = document.createElement('b');
+    b.textContent = String(totalNum);
+    totalTd.appendChild(b);
+    tr.appendChild(totalTd);
+
     tbody.appendChild(tr);
   });
 
@@ -268,97 +365,138 @@ function render(headers, rows) {
 }
 
 /* ============================
-   LOAD
+   LOAD + SEARCH + DEBOUNCE
 ============================ */
+let fetchInProgress = false;
+
 async function load() {
-  document.getElementById("status").textContent = "Updating…";
+  const statusEl = document.getElementById("status");
+  statusEl.textContent = "Updating…";
+  try {
+    fetchInProgress = true;
+    const res = await fetch(csvNoCache(), { cache: "no-store" });
+    if (!res.ok) {
+      statusEl.textContent = "Error fetching data";
+      console.error("Fetch error", res.status, res.statusText);
+      fetchInProgress = false;
+      return;
+    }
+    let text = await res.text();
+    // strip BOM if present
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
 
-  const res = await fetch(csvNoCache(), { cache: "no-store" });
-  const text = await res.text();
-  const rows = parseCSV(text).filter(r => r.some(c => String(c).trim() !== ""));
+    const rows = parseCSV(text).filter(r => r.some(c => String(c).trim() !== ""));
 
-  if (rows.length < 2) {
-    document.getElementById("status").textContent = "No data";
-    return;
-  }
+    if (rows.length < 2) {
+      document.getElementById("status").textContent = "No data";
+      fetchInProgress = false;
+      return;
+    }
 
-  const headers = rows[0];
-  const h = headerMap(headers);
+    const headers = rows[0];
+    const h = headerMap(headers);
 
-  const idxPlayer = h.get("player") ?? 0;
-  const idxGold   = h.get("gold");
-  const idxSilver = h.get("silver");
-  const idxBronze = h.get("bronze");
-  const idxPoints = h.get("points");
-  const idxBonus  = h.get("bonus");
-  const idxTotal  = h.get("total");
+    const idxPlayer = h.get("player") ?? 0;
+    const idxGold   = h.get("gold");
+    const idxSilver = h.get("silver");
+    const idxBronze = h.get("bronze");
+    const idxPoints = h.get("points");
+    const idxBonus  = h.get("bonus");
+    const idxTotal  = h.get("total");
 
-  // Clean + pad rows
-  let data = rows.slice(1)
-    .filter(r => String(r[idxPlayer] ?? "").trim() !== "")
-    .map(r => {
-      const padded = [...r];
-      while (padded.length < headers.length) padded.push("");
-      return padded;
+    // Clean + pad rows -> convert to objects with computed totalNum
+    let data = rows.slice(1)
+      .filter(r => String(r[idxPlayer] ?? "").trim() !== "")
+      .map(r => {
+        const padded = [...r];
+        while (padded.length < headers.length) padded.push("");
+        // compute numeric total: prefer Total col (if present) else points+bonus
+        const totalNum = idxTotal != null
+          ? toNum(padded[idxTotal])
+          : (toNum(idxPoints != null ? padded[idxPoints] : 0) + toNum(idxBonus != null ? padded[idxBonus] : 0));
+        return { vals: padded, totalNum };
+      });
+
+    // Sort: by totalNum desc, then gold desc, silver desc, bronze desc, player name asc
+    data.sort((a, b) => {
+      const aVals = a.vals, bVals = b.vals;
+      const aTotal = a.totalNum, bTotal = b.totalNum;
+      if (bTotal !== aTotal) return bTotal - aTotal;
+
+      const cmpNumDesc = (idx) => {
+        if (idx == null) return 0;
+        return toNum(bVals[idx]) - toNum(aVals[idx]);
+      };
+
+      const r = cmpNumDesc(idxGold) || cmpNumDesc(idxSilver) || cmpNumDesc(idxBronze);
+      if (r !== 0) return r;
+
+      return String(aVals[idxPlayer]).localeCompare(String(bVals[idxPlayer]));
     });
 
-  // Sort: Total (if present) else Points+Bonus
-  data.sort((a, b) => {
-    const totalA = idxTotal != null ? toNum(a[idxTotal]) : (toNum(idxPoints != null ? a[idxPoints] : 0) + toNum(idxBonus != null ? a[idxBonus] : 0));
-    const totalB = idxTotal != null ? toNum(b[idxTotal]) : (toNum(idxPoints != null ? b[idxPoints] : 0) + toNum(idxBonus != null ? b[idxBonus] : 0));
+    cachedHeaders = headers;
+    cachedRows = data;
 
-    return (
-      totalB - totalA ||
-      (idxGold   != null ? toNum(b[idxGold])   - toNum(a[idxGold])   : 0) ||
-      (idxSilver != null ? toNum(b[idxSilver]) - toNum(a[idxSilver]) : 0) ||
-      (idxBronze != null ? toNum(b[idxBronze]) - toNum(a[idxBronze]) : 0) ||
-      String(a[idxPlayer]).localeCompare(String(b[idxPlayer]))
-    );
-  });
+    applySearch();
 
-  cachedHeaders = headers;
-  cachedRows = data;
-
-  applySearch();
-
-  document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString();
-  document.getElementById("status").textContent = "Live";
+    document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString();
+    statusEl.textContent = "Live";
+    fetchInProgress = false;
+  } catch (err) {
+    console.error(err);
+    document.getElementById("status").textContent = "Error";
+    fetchInProgress = false;
+  }
 }
 
 function applySearch() {
   if (!cachedHeaders.length) return;
-
   const h = headerMap(cachedHeaders);
   const idxPlayer = h.get("player") ?? 0;
-
   const q = document.getElementById("search").value.trim().toLowerCase();
-  const filtered = !q ? cachedRows : cachedRows.filter(r => String(r[idxPlayer]).toLowerCase().includes(q));
+  const filtered = !q ? cachedRows : cachedRows.filter(r => String(r.vals[idxPlayer]).toLowerCase().includes(q));
   render(cachedHeaders, filtered);
 }
 
-document.getElementById("refresh").onclick = load;
-document.getElementById("search").addEventListener("input", applySearch);
+// simple debounce
+function debounce(fn, wait = 200) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+document.getElementById("refresh").onclick = () => {
+  if (!fetchInProgress) load();
+};
+document.getElementById("search").addEventListener("input", debounce(applySearch, 150));
 
 load();
 setInterval(load, 60_000);
 
 /* ============================
-   MUSIC
+   MUSIC (autoplay muted + accessible)
 ============================ */
 let playing = false;
-document.getElementById("musicBtn").onclick = () => {
+const musicBtn = document.getElementById("musicBtn");
+musicBtn.onclick = () => {
   const yt = document.getElementById("yt");
   if (!playing) {
     yt.innerHTML =
-      `<iframe width="0" height="0"
-        src="https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&loop=1&playlist=${VIDEO_ID}"
-        allow="autoplay"></iframe>`;
-    document.getElementById("musicBtn").textContent = "⏸ Stop music";
+      `<iframe width="0" height="0" title="Background music"
+        src="https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&loop=1&playlist=${VIDEO_ID}&mute=1"
+        allow="autoplay; encrypted-media"></iframe>`;
+    musicBtn.textContent = "⏸ Stop music";
+    musicBtn.setAttribute('aria-pressed', 'true');
     playing = true;
+    document.getElementById("yt").removeAttribute('aria-hidden');
   } else {
     yt.innerHTML = "";
-    document.getElementById("musicBtn").textContent = "🔥 Intense music";
+    musicBtn.textContent = "🔥 Intense music";
+    musicBtn.setAttribute('aria-pressed', 'false');
     playing = false;
+    document.getElementById("yt").setAttribute('aria-hidden', 'true');
   }
 };
 </script>
