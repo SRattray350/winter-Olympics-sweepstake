@@ -36,7 +36,7 @@
 
 <script>
   // 1) Paste your published Leaderboard CSV URL here:
-  const CSV_URL = "PASTE_YOUR_PUBLISHED_CSV_URL_HERE";
+  const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTv_B6jdgEx4q3c9uhSISHuVdhUfubFMblfU0FJXop_rv7jniIO_y44H-ARvrjassAOOi0xhDIgxMYW/pub?gid=37582016&single=true&output=csv";
 
   // Cache-bust so GitHub Pages always shows fresh data
   const csvWithNoCache = () => CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
