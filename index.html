@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Office Winter Olympics Sweepstake</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; max-width: 980px; }
+    h1 { margin: 0 0 6px 0; }
+    .sub { color: #555; margin: 0 0 18px 0; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 10px 0 18px; }
+    input { padding: 10px; border: 1px solid #ddd; border-radius: 10px; min-width: 260px; }
+    button { padding: 10px 12px; border: 1px solid #ddd; background: #fff; border-radius: 10px; cursor: pointer; }
+    button:hover { background: #f6f6f6; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #eee; padding: 10px 8px; text-align: left; }
+    th { font-weight: 650; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pill { display:inline-block; padding: 3px 10px; border: 1px solid #eee; border-radius: 999px; font-size: 12px; color:#555; }
+    .muted { color:#777; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Office Winter Olympics Sweepstake</h1>
+  <p class="sub">
+    Live leaderboard (auto-refreshing). <span id="status" class="pill">Loading…</span>
+  </p>
+
+  <div class="row">
+    <input id="search" placeholder="Search player…" />
+    <button id="refresh">Refresh now</button>
+    <span id="updated" class="muted"></span>
+  </div>
+
+  <table id="tbl"></table>
+
+<script>
+  // 1) Paste your published Leaderboard CSV URL here:
+  const CSV_URL = "PASTE_YOUR_PUBLISHED_CSV_URL_HERE";
+
+  // Cache-bust so GitHub Pages always shows fresh data
+  const csvWithNoCache = () => CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
+
+  // Minimal CSV parser that handles quoted commas
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = "", inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      const next = text[i + 1];
+
+      if (c === '"' && inQuotes && next === '"') { field += '"'; i++; continue; }
+      if (c === '"') { inQuotes = !inQuotes; continue; }
+
+      if (c === "," && !inQuotes) { row.push(field); field = ""; continue; }
+      if ((c === "\n" || c === "\r") && !inQuotes) {
+        if (c === "\r" && next === "\n") i++;
+        row.push(field);
+        if (row.length > 1 || (row.length === 1 && row[0].trim() !== "")) rows.push(row);
+        row = []; field = "";
+        continue;
+      }
+      field += c;
+    }
+
+    // last field
+    row.push(field);
+    if (row.length > 1 || (row.length === 1 && row[0].trim() !== "")) rows.push(row);
+    return rows;
+  }
+
+  function toNumber(x) {
+    const n = Number(String(x).replace(/[^\d.-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function renderTable(headers, data) {
+    const tbl = document.getElementById("tbl");
+    tbl.innerHTML = "";
+
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+
+    headers.forEach((h, idx) => {
+      const th = document.createElement("th");
+      th.textContent = h;
+      if (idx > 0 && idx <= 4) th.classList.add("num");
+      trh.appendChild(th);
+    });
+
+    thead.appendChild(trh);
+    tbl.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    data.forEach(r => {
+      const tr = document.createElement("tr");
+      r.forEach((c, idx) => {
+        const td = document.createElement("td");
+        td.textContent = c;
+        if (idx > 0 && idx <= 4) td.classList.add("num");
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+  }
+
+  let fullData = []; // for search
+
+  async function load() {
+    const status = document.getElementById("status");
+    status.textContent = "Updating…";
+
+    const res = await fetch(csvWithNoCache(), { cache: "no-store" });
+    const text = await res.text();
+
+    const rows = parseCSV(text).filter(r => r.some(c => String(c).trim() !== ""));
+    if (rows.length < 2) {
+      status.textContent = "No data yet";
+      renderTable(["Player","Gold","Silver","Bronze","Points"], []);
+      return;
+    }
+
+    const headers = rows[0];
+    const data = rows.slice(1)
+      .filter(r => String(r[0] || "").trim() !== "")
+      .map(r => {
+        // Ensure at least 5 columns exist
+        const padded = [...r];
+        while (padded.length < 5) padded.push("");
+        return padded;
+      })
+      // Sort like an Olympic table: Points, Gold, Silver, Bronze
+      .sort((a,b) =>
+        toNumber(b[4]) - toNumber(a[4]) ||
+        toNumber(b[1]) - toNumber(a[1]) ||
+        toNumber(b[2]) - toNumber(a[2]) ||
+        toNumber(b[3]) - toNumber(a[3]) ||
+        String(a[0]).localeCompare(String(b[0]))
+      );
+
+    fullData = data;
+    renderTable(headers, data);
+
+    document.getElementById("updated").textContent =
+      "Last refreshed: " + new Date().toLocaleString();
+
+    status.textContent = "Live";
+  }
+
+  function applySearch() {
+    const q = document.getElementById("search").value.trim().toLowerCase();
+    const tbl = document.getElementById("tbl");
+    const headers = Array.from(tbl.querySelectorAll("thead th")).map(th => th.textContent);
+
+    const filtered = !q ? fullData : fullData.filter(r => String(r[0]).toLowerCase().includes(q));
+    renderTable(headers, filtered);
+  }
+
+  document.getElementById("refresh").addEventListener("click", load);
+  document.getElementById("search").addEventListener("input", applySearch);
+
+  load();
+  setInterval(load, 60_000); // refresh every 60 seconds
+</script>
+</body>
+</html>
