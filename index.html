@@ -1,231 +1,267 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Office Winter Olympics Sweepstake</title>
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; max-width: 980px; }
-    h1 { margin: 0 0 6px 0; }
-    .sub { color: #555; margin: 0 0 18px 0; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 10px 0 18px; }
-    input { padding: 10px; border: 1px solid #ddd; border-radius: 10px; min-width: 260px; }
-    button { padding: 10px 12px; border: 1px solid #ddd; background: #fff; border-radius: 10px; cursor: pointer; }
-    button:hover { background: #f6f6f6; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border-bottom: 1px solid #eee; padding: 10px 8px; text-align: left; }
-    th { font-weight: 650; }
-    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .pill { display:inline-block; padding: 3px 10px; border: 1px solid #eee; border-radius: 999px; font-size: 12px; color:#555; }
-    .muted { color:#777; font-size: 13px; }
-    img.flag { vertical-align: middle; margin-right: 6px; border: 1px solid #eee; border-radius: 2px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Office Winter Olympics Sweepstake</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background:
+      linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
+      url("background.jpg"); /* <-- your uploaded image */
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    color: #111;
+  }
+
+  .wrap {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.92);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+  }
+
+  h1 { margin: 0 0 6px; }
+  .sub { color: #555; margin-bottom: 14px; }
+
+  .row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  input {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    min-width: 260px;
+  }
+
+  button {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    background: #fff;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  button:hover { background: #f4f4f4; }
+
+  .pill {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #ddd;
+    font-size: 12px;
+    color: #444;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  th {
+    text-align: left;
+    font-weight: 700;
+  }
+
+  td.num, th.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  img.flag {
+    vertical-align: middle;
+    margin-right: 6px;
+    border-radius: 2px;
+    border: 1px solid rgba(0,0,0,0.15);
+  }
+
+  #yt {
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+</style>
 </head>
+
 <body>
-  <h1>Office Winter Olympics Sweepstake</h1>
-  <p class="sub">
-    Live leaderboard (auto-refreshing). <span id="status" class="pill">Loading…</span>
-  </p>
+<div class="wrap">
+  <div class="card">
+    <h1>Office Winter Olympics Sweepstake</h1>
+    <p class="sub">
+      Live leaderboard <span id="status" class="pill">Loading…</span>
+    </p>
 
-  <div class="row">
-    <input id="search" placeholder="Search player…" />
-    <button id="refresh">Refresh now</button>
-    <span id="updated" class="muted"></span>
+    <div class="row">
+      <input id="search" placeholder="Search player…" />
+      <button id="refresh">Refresh</button>
+      <button id="musicBtn">🔥 Intense music</button>
+      <span id="updated" class="pill"></span>
+    </div>
+
+    <table id="tbl"></table>
   </div>
+</div>
 
-  <table id="tbl"></table>
+<div id="yt"></div>
 
 <script>
-  // Your published Leaderboard CSV URL:
-  const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTv_B6jdgEx4q3c9uhSISHuVdhUfubFMblfU0FJXop_rv7jniIO_y44H-ARvrjassAOOi0xhDIgxMYW/pub?gid=37582016&single=true&output=csv";
+/* ============================
+   CONFIG
+============================ */
+const CSV_URL =
+"https://docs.google.com/spreadsheets/d/e/2PACX-1vTv_B6jdgEx4q3c9uhSISHuVdhUfubFMblfU0FJXop_rv7jniIO_y44H-ARvrjassAOOi0xhDIgxMYW/pub?gid=37582016&single=true&output=csv";
 
-  // Cache-bust so GitHub Pages always shows fresh data
-  const csvWithNoCache = () => CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
+const VIDEO_ID = "zRs58D34OLY";
 
-  // Minimal CSV parser that handles quoted commas
-  function parseCSV(text) {
-    const rows = [];
-    let row = [], field = "", inQuotes = false;
+/* ============================
+   HELPERS
+============================ */
+const csvNoCache = () => CSV_URL + "&t=" + Date.now();
 
-    for (let i = 0; i < text.length; i++) {
-      const c = text[i];
-      const next = text[i + 1];
-
-      if (c === '"' && inQuotes && next === '"') { field += '"'; i++; continue; }
-      if (c === '"') { inQuotes = !inQuotes; continue; }
-
-      if (c === "," && !inQuotes) { row.push(field); field = ""; continue; }
-      if ((c === "\n" || c === "\r") && !inQuotes) {
-        if (c === "\r" && next === "\n") i++;
-        row.push(field);
-        if (row.length > 1 || (row.length === 1 && row[0].trim() !== "")) rows.push(row);
-        row = []; field = "";
-        continue;
-      }
-      field += c;
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], n = text[i+1];
+    if (c === '"' && inQuotes && n === '"') { field += '"'; i++; continue; }
+    if (c === '"') { inQuotes = !inQuotes; continue; }
+    if (c === "," && !inQuotes) { row.push(field); field=""; continue; }
+    if ((c === "\n" || c === "\r") && !inQuotes) {
+      if (c === "\r" && n === "\n") i++;
+      row.push(field); rows.push(row);
+      row=[]; field=""; continue;
     }
-
-    row.push(field);
-    if (row.length > 1 || (row.length === 1 && row[0].trim() !== "")) rows.push(row);
-    return rows;
+    field += c;
   }
+  row.push(field); rows.push(row);
+  return rows;
+}
 
-  function toNumber(x) {
-    const n = Number(String(x).replace(/[^\d.-]/g, ""));
-    return Number.isFinite(n) ? n : 0;
+function toNum(x){
+  const n = Number(String(x).replace(/[^\d.-]/g,""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function flag(code){
+  if(!code) return "";
+  const c = code.toLowerCase();
+  return `<img class="flag" src="https://flagcdn.com/w20/${c}.png"
+          srcset="https://flagcdn.com/w40/${c}.png 2x"
+          width="20" height="15">`;
+}
+
+/* ============================
+   LOAD & RENDER
+============================ */
+async function load(){
+  document.getElementById("status").textContent = "Updating…";
+  const res = await fetch(csvNoCache(), {cache:"no-store"});
+  const text = await res.text();
+  const rows = parseCSV(text);
+  if(rows.length < 2) return;
+
+  const headers = rows[0];
+  const data = rows.slice(1).filter(r => r[0]);
+
+  const idx = name => headers.findIndex(h => h.toLowerCase() === name);
+
+  const p = idx("player");
+  const g = idx("gold");
+  const s = idx("silver");
+  const b = idx("bronze");
+  const t = idx("total");
+  const c1 = idx("country 1"), c2 = idx("country 2"), c3 = idx("country 3");
+  const i1 = idx("iso1"), i2 = idx("iso2"), i3 = idx("iso3");
+
+  data.sort((a,b) =>
+    toNum(b[t]) - toNum(a[t]) ||
+    toNum(b[g]) - toNum(a[g]) ||
+    toNum(b[s]) - toNum(a[s]) ||
+    toNum(b[b]) - toNum(a[b])
+  );
+
+  const tbl = document.getElementById("tbl");
+  tbl.innerHTML = "";
+
+  const thead = document.createElement("thead");
+  thead.innerHTML = `
+    <tr>
+      <th>Player</th>
+      <th class="num">Gold</th>
+      <th class="num">Silver</th>
+      <th class="num">Bronze</th>
+      <th class="num">Total</th>
+      <th>Countries</th>
+    </tr>`;
+  tbl.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  data.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r[p]}</td>
+      <td class="num">${r[g]}</td>
+      <td class="num">${r[s]}</td>
+      <td class="num">${r[b]}</td>
+      <td class="num"><b>${r[t]}</b></td>
+      <td>
+        ${flag(r[i1])}${r[c1]}&nbsp;&nbsp;
+        ${flag(r[i2])}${r[c2]}&nbsp;&nbsp;
+        ${flag(r[i3])}${r[c3]}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+
+  document.getElementById("updated").textContent =
+    "Updated " + new Date().toLocaleTimeString();
+  document.getElementById("status").textContent = "Live";
+}
+
+document.getElementById("refresh").onclick = load;
+load();
+setInterval(load, 60000);
+
+/* ============================
+   MUSIC
+============================ */
+let playing = false;
+
+document.getElementById("musicBtn").onclick = () => {
+  const yt = document.getElementById("yt");
+  if(!playing){
+    yt.innerHTML =
+      `<iframe width="0" height="0"
+        src="https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&loop=1&playlist=${VIDEO_ID}"
+        allow="autoplay"></iframe>`;
+    document.getElementById("musicBtn").textContent = "⏸ Stop music";
+    playing = true;
+  } else {
+    yt.innerHTML = "";
+    document.getElementById("musicBtn").textContent = "🔥 Intense music";
+    playing = false;
   }
-
-  function flagImg(code) {
-    if (!code) return "";
-    const c = String(code).trim().toLowerCase();
-    return `<img class="flag"
-                 src="https://flagcdn.com/w20/${c}.png"
-                 srcset="https://flagcdn.com/w40/${c}.png 2x"
-                 width="20" height="15" alt="${c}">`;
-  }
-
-  function indexMap(headers) {
-    const m = new Map();
-    headers.forEach((h, i) => m.set(String(h).trim().toLowerCase(), i));
-    return m;
-  }
-
-  function isHiddenHeader(h) {
-    const x = String(h).trim().toLowerCase();
-    return x.startsWith("flag") || x.startsWith("iso");
-  }
-
-  function renderTable(headers, data) {
-    const tbl = document.getElementById("tbl");
-    tbl.innerHTML = "";
-
-    const hmap = indexMap(headers);
-
-    // Find key columns by name (case/space tolerant)
-    const idxPlayer = hmap.get("player") ?? 0;
-    const idxGold   = hmap.get("gold");
-    const idxSilver = hmap.get("silver");
-    const idxBronze = hmap.get("bronze");
-    const idxPoints = hmap.get("points");
-
-    const idxC1 = hmap.get("country 1");
-    const idxC2 = hmap.get("country 2");
-    const idxC3 = hmap.get("country 3");
-
-    const idxISO1 = hmap.get("iso1");
-    const idxISO2 = hmap.get("iso2");
-    const idxISO3 = hmap.get("iso3");
-
-    // Keep only non-hidden columns
-    const keptIdx = headers.map((h, i) => ({h, i}))
-      .filter(x => !isHiddenHeader(x.h))
-      .map(x => x.i);
-
-    const keptHeaders = keptIdx.map(i => headers[i]);
-
-    const thead = document.createElement("thead");
-    const trh = document.createElement("tr");
-
-    keptHeaders.forEach(h => {
-      const th = document.createElement("th");
-      th.textContent = h;
-      const hl = String(h).trim().toLowerCase();
-      if (hl === "gold" || hl === "silver" || hl === "bronze" || hl === "points") th.classList.add("num");
-      trh.appendChild(th);
-    });
-
-    thead.appendChild(trh);
-    tbl.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
-
-    data.forEach(r => {
-      const tr = document.createElement("tr");
-
-      keptIdx.forEach(i => {
-        const td = document.createElement("td");
-        const headerName = String(headers[i]).trim().toLowerCase();
-
-        // Inject flag images into Country columns using ISO codes
-        if (i === idxC1 && idxISO1 != null) td.innerHTML = flagImg(r[idxISO1]) + (r[idxC1] || "");
-        else if (i === idxC2 && idxISO2 != null) td.innerHTML = flagImg(r[idxISO2]) + (r[idxC2] || "");
-        else if (i === idxC3 && idxISO3 != null) td.innerHTML = flagImg(r[idxISO3]) + (r[idxC3] || "");
-        else td.textContent = r[i] || "";
-
-        if (headerName === "gold" || headerName === "silver" || headerName === "bronze" || headerName === "points") {
-          td.classList.add("num");
-        }
-
-        tr.appendChild(td);
-      });
-
-      tbody.appendChild(tr);
-    });
-
-    tbl.appendChild(tbody);
-  }
-
-  let fullHeaders = [];
-  let fullData = [];
-
-  async function load() {
-    const status = document.getElementById("status");
-    status.textContent = "Updating…";
-
-    const res = await fetch(csvWithNoCache(), { cache: "no-store" });
-    const text = await res.text();
-
-    const rows = parseCSV(text).filter(r => r.some(c => String(c).trim() !== ""));
-    if (rows.length < 2) {
-      status.textContent = "No data yet";
-      renderTable(["Player","Gold","Silver","Bronze","Points","Country 1","Country 2","Country 3"], []);
-      return;
-    }
-
-    const headers = rows[0];
-    const hmap = indexMap(headers);
-
-    const idxPlayer = hmap.get("player") ?? 0;
-    const idxGold   = hmap.get("gold");
-    const idxSilver = hmap.get("silver");
-    const idxBronze = hmap.get("bronze");
-    const idxPoints = hmap.get("points");
-
-    const data = rows.slice(1)
-      .filter(r => String(r[idxPlayer] || "").trim() !== "")
-      .map(r => {
-        const padded = [...r];
-        while (padded.length < headers.length) padded.push("");
-        return padded;
-      })
-      // Sort: Points, Gold, Silver, Bronze, Player
-      .sort((a,b) =>
-        (idxPoints != null ? toNumber(b[idxPoints]) - toNumber(a[idxPoints]) : 0) ||
-        (idxGold   != null ? toNumber(b[idxGold])   - toNumber(a[idxGold])   : 0) ||
-        (idxSilver != null ? toNumber(b[idxSilver]) - toNumber(a[idxSilver]) : 0) ||
-        (idxBronze != null ? toNumber(b[idxBronze]) - toNumber(a[idxBronze]) : 0) ||
-        String(a[idxPlayer]).localeCompare(String(b[idxPlayer]))
-      );
-
-    fullHeaders = headers;
-    fullData = data;
-
-    const q = document.getElementById("search").value.trim().toLowerCase();
-    const filtered = !q ? fullData : fullData.filter(r => String(r[idxPlayer]).toLowerCase().includes(q));
-
-    renderTable(fullHeaders, filtered);
-
-    document.getElementById("updated").textContent =
-      "Last refreshed: " + new Date().toLocaleString();
-
-    status.textContent = "Live";
-  }
-
-  document.getElementById("refresh").addEventListener("click", load);
-  document.getElementById("search").addEventListener("input", load);
-
-  load();
-  setInterval(load, 60_000);
+};
 </script>
 </body>
 </html>
