@@ -18,6 +18,7 @@
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .pill { display:inline-block; padding: 3px 10px; border: 1px solid #eee; border-radius: 999px; font-size: 12px; color:#555; }
     .muted { color:#777; font-size: 13px; }
+    img.flag { vertical-align: middle; margin-right: 6px; border: 1px solid #eee; border-radius: 2px; }
   </style>
 </head>
 <body>
@@ -35,8 +36,18 @@
   <table id="tbl"></table>
 
 <script>
-  // 1) Paste your published Leaderboard CSV URL here:
+  // Paste your published Leaderboard CSV URL here:
   const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTv_B6jdgEx4q3c9uhSISHuVdhUfubFMblfU0FJXop_rv7jniIO_y44H-ARvrjassAOOi0xhDIgxMYW/pub?gid=37582016&single=true&output=csv";
+
+  // Expected CSV columns (0-based):
+  // 0 Player, 1 Gold, 2 Silver, 3 Bronze, 4 Points,
+  // 5 Country 1, 6 Country 2, 7 Country 3,
+  // 8 Flag 1 (emoji), 9 Flag 2 (emoji), 10 Flag 3 (emoji),
+  // 11 ISO1, 12 ISO2, 13 ISO3
+  //
+  // On the website we will HIDE emoji flags + ISO columns,
+  // and instead show real flag images next to Country 1/2/3.
+  const HIDE_COLS = new Set([8, 9, 10, 11, 12, 13]);
 
   // Cache-bust so GitHub Pages always shows fresh data
   const csvWithNoCache = () => CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
@@ -64,7 +75,6 @@
       field += c;
     }
 
-    // last field
     row.push(field);
     if (row.length > 1 || (row.length === 1 && row[0].trim() !== "")) rows.push(row);
     return rows;
@@ -75,17 +85,35 @@
     return Number.isFinite(n) ? n : 0;
   }
 
+  function flagImg(code) {
+    if (!code) return "";
+    const c = String(code).trim().toLowerCase();
+    // flagcdn uses ISO2 lowercase codes
+    return `<img class="flag"
+                 src="https://flagcdn.com/w20/${c}.png"
+                 srcset="https://flagcdn.com/w40/${c}.png 2x"
+                 width="20" height="15" alt="${c}">`;
+  }
+
+  let fullData = [];
+  let fullHeaders = [];
+
   function renderTable(headers, data) {
     const tbl = document.getElementById("tbl");
     tbl.innerHTML = "";
 
+    // Decide which columns to keep visible
+    const keptIdx = headers.map((_, i) => i).filter(i => !HIDE_COLS.has(i));
+    const keptHeaders = keptIdx.map(i => headers[i]);
+
     const thead = document.createElement("thead");
     const trh = document.createElement("tr");
 
-    headers.forEach((h, idx) => {
+    keptHeaders.forEach((h, visibleIdx) => {
       const th = document.createElement("th");
       th.textContent = h;
-      if (idx > 0 && idx <= 4) th.classList.add("num");
+      // numeric columns after filtering: Gold/Silver/Bronze/Points are still visible indices 1..4
+      if (visibleIdx >= 1 && visibleIdx <= 4) th.classList.add("num");
       trh.appendChild(th);
     });
 
@@ -93,20 +121,29 @@
     tbl.appendChild(thead);
 
     const tbody = document.createElement("tbody");
+
     data.forEach(r => {
       const tr = document.createElement("tr");
-      r.forEach((c, idx) => {
+
+      keptIdx.forEach((colIdx, visibleIdx) => {
         const td = document.createElement("td");
-        td.textContent = c;
-        if (idx > 0 && idx <= 4) td.classList.add("num");
+
+        // Add image flags into Country columns using ISO columns.
+        // Country cols are 5,6,7; ISO cols are 11,12,13
+        if (colIdx === 5) td.innerHTML = flagImg(r[11]) + (r[5] || "");
+        else if (colIdx === 6) td.innerHTML = flagImg(r[12]) + (r[6] || "");
+        else if (colIdx === 7) td.innerHTML = flagImg(r[13]) + (r[7] || "");
+        else td.textContent = r[colIdx] || "";
+
+        if (visibleIdx >= 1 && visibleIdx <= 4) td.classList.add("num");
         tr.appendChild(td);
       });
+
       tbody.appendChild(tr);
     });
+
     tbl.appendChild(tbody);
   }
-
-  let fullData = []; // for search
 
   async function load() {
     const status = document.getElementById("status");
@@ -118,7 +155,7 @@
     const rows = parseCSV(text).filter(r => r.some(c => String(c).trim() !== ""));
     if (rows.length < 2) {
       status.textContent = "No data yet";
-      renderTable(["Player","Gold","Silver","Bronze","Points"], []);
+      renderTable(["Player","Gold","Silver","Bronze","Points","Country 1","Country 2","Country 3"], []);
       return;
     }
 
@@ -126,9 +163,9 @@
     const data = rows.slice(1)
       .filter(r => String(r[0] || "").trim() !== "")
       .map(r => {
-        // Ensure at least 5 columns exist
         const padded = [...r];
-        while (padded.length < 5) padded.push("");
+        // Ensure we have enough columns up to ISO3 (index 13)
+        while (padded.length < 14) padded.push("");
         return padded;
       })
       // Sort like an Olympic table: Points, Gold, Silver, Bronze
@@ -140,8 +177,14 @@
         String(a[0]).localeCompare(String(b[0]))
       );
 
+    fullHeaders = headers;
     fullData = data;
-    renderTable(headers, data);
+
+    // Apply current search filter (if any) before rendering
+    const q = document.getElementById("search").value.trim().toLowerCase();
+    const filtered = !q ? fullData : fullData.filter(r => String(r[0]).toLowerCase().includes(q));
+
+    renderTable(fullHeaders, filtered);
 
     document.getElementById("updated").textContent =
       "Last refreshed: " + new Date().toLocaleString();
@@ -149,17 +192,8 @@
     status.textContent = "Live";
   }
 
-  function applySearch() {
-    const q = document.getElementById("search").value.trim().toLowerCase();
-    const tbl = document.getElementById("tbl");
-    const headers = Array.from(tbl.querySelectorAll("thead th")).map(th => th.textContent);
-
-    const filtered = !q ? fullData : fullData.filter(r => String(r[0]).toLowerCase().includes(q));
-    renderTable(headers, filtered);
-  }
-
   document.getElementById("refresh").addEventListener("click", load);
-  document.getElementById("search").addEventListener("input", applySearch);
+  document.getElementById("search").addEventListener("input", load);
 
   load();
   setInterval(load, 60_000); // refresh every 60 seconds
