@@ -9,12 +9,16 @@
   body {
     margin: 0;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+    /* IMPORTANT: rename your uploaded image to background.jpg OR edit this filename */
     background:
       linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
-      url("background.jpg"); /* <-- your uploaded image */
+      url("background.jpg");
+
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
+    min-height: 100vh;
     color: #111;
   }
 
@@ -57,7 +61,6 @@
     cursor: pointer;
     font-weight: 600;
   }
-
   button:hover { background: #f4f4f4; }
 
   .pill {
@@ -66,27 +69,13 @@
     border: 1px solid #ddd;
     font-size: 12px;
     color: #444;
+    background: rgba(255,255,255,0.75);
   }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th, td {
-    padding: 10px 8px;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  th {
-    text-align: left;
-    font-weight: 700;
-  }
-
-  td.num, th.num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 8px; border-bottom: 1px solid #e0e0e0; }
+  th { text-align: left; font-weight: 700; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
   img.flag {
     vertical-align: middle;
@@ -95,11 +84,7 @@
     border: 1px solid rgba(0,0,0,0.15);
   }
 
-  #yt {
-    width: 0;
-    height: 0;
-    overflow: hidden;
-  }
+  #yt { width: 0; height: 0; overflow: hidden; }
 </style>
 </head>
 
@@ -154,7 +139,7 @@ function parseCSV(text) {
     field += c;
   }
   row.push(field); rows.push(row);
-  return rows;
+  return rows.filter(r => r.some(x => String(x).trim() !== ""));
 }
 
 function toNum(x){
@@ -164,41 +149,79 @@ function toNum(x){
 
 function flag(code){
   if(!code) return "";
-  const c = code.toLowerCase();
+  const c = String(code).trim().toLowerCase();
   return `<img class="flag" src="https://flagcdn.com/w20/${c}.png"
           srcset="https://flagcdn.com/w40/${c}.png 2x"
-          width="20" height="15">`;
+          width="20" height="15" alt="${c}">`;
+}
+
+function headerMap(headers){
+  const m = new Map();
+  headers.forEach((h, i) => m.set(String(h).trim().toLowerCase(), i)); // TRIM is key
+  return m;
 }
 
 /* ============================
    LOAD & RENDER
 ============================ */
+let fullHeaders = [];
+let fullData = [];
+
 async function load(){
   document.getElementById("status").textContent = "Updating…";
+
   const res = await fetch(csvNoCache(), {cache:"no-store"});
   const text = await res.text();
   const rows = parseCSV(text);
-  if(rows.length < 2) return;
+  if(rows.length < 2) {
+    document.getElementById("status").textContent = "No data";
+    return;
+  }
 
   const headers = rows[0];
-  const data = rows.slice(1).filter(r => r[0]);
+  const h = headerMap(headers);
 
-  const idx = name => headers.findIndex(h => h.toLowerCase() === name);
+  // Indexes (robust to trailing spaces)
+  const idxPlayer = h.get("player") ?? 0;
+  const idxGold   = h.get("gold");
+  const idxSilver = h.get("silver");
+  const idxBronze = h.get("bronze");
+  const idxTotal  = h.get("total") ?? h.get("points"); // fallback if you haven't added Total column yet
 
-  const p = idx("player");
-  const g = idx("gold");
-  const s = idx("silver");
-  const b = idx("bronze");
-  const t = idx("total");
-  const c1 = idx("country 1"), c2 = idx("country 2"), c3 = idx("country 3");
-  const i1 = idx("iso1"), i2 = idx("iso2"), i3 = idx("iso3");
+  const idxC1  = h.get("country 1");
+  const idxC2  = h.get("country 2");
+  const idxC3  = h.get("country 3");
+  const idxISO1 = h.get("iso1");
+  const idxISO2 = h.get("iso2");
+  const idxISO3 = h.get("iso3");
 
+  const data = rows.slice(1).filter(r => String(r[idxPlayer] || "").trim() !== "");
+
+  // Sort by Total (or Points), then Gold/Silver/Bronze
   data.sort((a,b) =>
-    toNum(b[t]) - toNum(a[t]) ||
-    toNum(b[g]) - toNum(a[g]) ||
-    toNum(b[s]) - toNum(a[s]) ||
-    toNum(b[b]) - toNum(a[b])
+    (idxTotal  != null ? toNum(b[idxTotal])  - toNum(a[idxTotal])  : 0) ||
+    (idxGold   != null ? toNum(b[idxGold])   - toNum(a[idxGold])   : 0) ||
+    (idxSilver != null ? toNum(b[idxSilver]) - toNum(a[idxSilver]) : 0) ||
+    (idxBronze != null ? toNum(b[idxBronze]) - toNum(a[idxBronze]) : 0) ||
+    String(a[idxPlayer]).localeCompare(String(b[idxPlayer]))
   );
+
+  fullHeaders = headers;
+  fullData = data;
+
+  applySearchAndRender({
+    idxPlayer, idxGold, idxSilver, idxBronze, idxTotal,
+    idxC1, idxC2, idxC3, idxISO1, idxISO2, idxISO3
+  });
+
+  document.getElementById("updated").textContent =
+    "Updated " + new Date().toLocaleTimeString();
+  document.getElementById("status").textContent = "Live";
+}
+
+function applySearchAndRender(idxs){
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const filtered = !q ? fullData : fullData.filter(r => String(r[idxs.idxPlayer]).toLowerCase().includes(q));
 
   const tbl = document.getElementById("tbl");
   tbl.innerHTML = "";
@@ -210,35 +233,64 @@ async function load(){
       <th class="num">Gold</th>
       <th class="num">Silver</th>
       <th class="num">Bronze</th>
-      <th class="num">Total</th>
+      <th class="num">${(idxs.idxTotal != null && String(fullHeaders[idxs.idxTotal]).trim()) || "Total"}</th>
       <th>Countries</th>
     </tr>`;
   tbl.appendChild(thead);
 
   const tbody = document.createElement("tbody");
-  data.forEach(r => {
+  filtered.forEach(r => {
+    const gold = idxs.idxGold != null ? (r[idxs.idxGold] ?? "0") : "0";
+    const silver = idxs.idxSilver != null ? (r[idxs.idxSilver] ?? "0") : "0";
+    const bronze = idxs.idxBronze != null ? (r[idxs.idxBronze] ?? "0") : "0";
+    const total = idxs.idxTotal != null ? (r[idxs.idxTotal] ?? "0") : "0";
+
+    const c1 = idxs.idxC1 != null ? (r[idxs.idxC1] ?? "") : "";
+    const c2 = idxs.idxC2 != null ? (r[idxs.idxC2] ?? "") : "";
+    const c3 = idxs.idxC3 != null ? (r[idxs.idxC3] ?? "") : "";
+
+    const iso1 = idxs.idxISO1 != null ? r[idxs.idxISO1] : "";
+    const iso2 = idxs.idxISO2 != null ? r[idxs.idxISO2] : "";
+    const iso3 = idxs.idxISO3 != null ? r[idxs.idxISO3] : "";
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${r[p]}</td>
-      <td class="num">${r[g]}</td>
-      <td class="num">${r[s]}</td>
-      <td class="num">${r[b]}</td>
-      <td class="num"><b>${r[t]}</b></td>
+      <td>${r[idxs.idxPlayer]}</td>
+      <td class="num">${gold}</td>
+      <td class="num">${silver}</td>
+      <td class="num">${bronze}</td>
+      <td class="num"><b>${total}</b></td>
       <td>
-        ${flag(r[i1])}${r[c1]}&nbsp;&nbsp;
-        ${flag(r[i2])}${r[c2]}&nbsp;&nbsp;
-        ${flag(r[i3])}${r[c3]}
+        ${flag(iso1)}${c1}&nbsp;&nbsp;
+        ${flag(iso2)}${c2}&nbsp;&nbsp;
+        ${flag(iso3)}${c3}
       </td>`;
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
-
-  document.getElementById("updated").textContent =
-    "Updated " + new Date().toLocaleTimeString();
-  document.getElementById("status").textContent = "Live";
 }
 
 document.getElementById("refresh").onclick = load;
+document.getElementById("search").addEventListener("input", () => {
+  // re-render from cached data without refetching
+  const headers = fullHeaders;
+  if (!headers.length) return;
+  const h = headerMap(headers);
+  applySearchAndRender({
+    idxPlayer: h.get("player") ?? 0,
+    idxGold: h.get("gold"),
+    idxSilver: h.get("silver"),
+    idxBronze: h.get("bronze"),
+    idxTotal: h.get("total") ?? h.get("points"),
+    idxC1: h.get("country 1"),
+    idxC2: h.get("country 2"),
+    idxC3: h.get("country 3"),
+    idxISO1: h.get("iso1"),
+    idxISO2: h.get("iso2"),
+    idxISO3: h.get("iso3"),
+  });
+});
+
 load();
 setInterval(load, 60000);
 
@@ -246,7 +298,6 @@ setInterval(load, 60000);
    MUSIC
 ============================ */
 let playing = false;
-
 document.getElementById("musicBtn").onclick = () => {
   const yt = document.getElementById("yt");
   if(!playing){
