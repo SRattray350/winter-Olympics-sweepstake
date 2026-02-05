@@ -8,7 +8,7 @@
 <style>
   body {
     margin: 0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 
     /* Your repo background */
     background:
@@ -33,6 +33,9 @@
     border-radius: 18px;
     padding: 18px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+
+    /* Make sure card contains children and doesn't visually break when inner content scrolls */
+    overflow: hidden;
   }
 
   h1 { margin: 0 0 6px; }
@@ -46,11 +49,14 @@
     margin-bottom: 14px;
   }
 
+  /* allow input to shrink on small screens while still being usable */
   input {
     padding: 10px;
     border-radius: 10px;
     border: 1px solid #ddd;
     min-width: 260px;
+    flex: 1 1 260px;
+    box-sizing: border-box;
   }
 
   button {
@@ -60,6 +66,7 @@
     background: #fff;
     cursor: pointer;
     font-weight: 650;
+    flex: 0 0 auto;
   }
   button:hover { background: #f4f4f4; }
 
@@ -72,7 +79,22 @@
     background: rgba(255,255,255,0.75);
   }
 
-  table { width: 100%; border-collapse: collapse; }
+  /* New wrapper: keep the white card visual intact and enable horizontal scroll on small screens */
+  .tableWrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* ensure some breathing room inside the card when table scrolls */
+    padding-bottom: 6px;
+    margin-top: 6px;
+  }
+
+  table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    /* prefer to allow inner table to be wide while keeping it scrollable inside .tableWrap */
+    min-width: 720px;
+  }
   th, td { padding: 10px 8px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
   th { text-align: left; font-weight: 800; }
 
@@ -119,6 +141,25 @@
   }
 
   #yt { width: 0; height: 0; overflow: hidden; }
+
+  /* Responsive tweaks */
+  @media (max-width: 800px) {
+    .wrap { padding: 16px; }
+    .card { padding: 14px; border-radius: 14px; }
+    input { min-width: 0; flex: 1 1 160px; }
+    table { min-width: 640px; }
+    img.flag { width: 18px; height: 13px; }
+    .medal { width: 22px; height: 22px; line-height:22px; font-size:12px; }
+  }
+
+  @media (max-width: 480px) {
+    .wrap { padding: 12px; }
+    .row { gap: 8px; }
+    .card { padding: 12px; }
+    .pill { font-size: 11px; }
+    table { min-width: 560px; }
+    th, td { padding: 8px 6px; }
+  }
 </style>
 </head>
 
@@ -138,7 +179,10 @@
       <span id="updated" class="pill"></span>
     </div>
 
-    <table id="tbl" aria-live="polite"></table>
+    <!-- Wrapped the table in a horizontally-scrollable container so it never visually escapes the white card -->
+    <div class="tableWrap" aria-hidden="false">
+      <table id="tbl" aria-live="polite"></table>
+    </div>
   </div>
 </div>
 
