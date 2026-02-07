@@ -145,9 +145,13 @@
     const tbl = document.getElementById("tbl");
     tbl.innerHTML = "";
 
+    // --- remove ISO columns from main table ---
+    const isoHeadersLower = new Set(["iso1","iso2","iso3"]);
+    const displayHeaders = headers.filter(h => !isoHeadersLower.has(String(h).trim().toLowerCase()));
+
     const thead = document.createElement("thead");
     const trh = document.createElement("tr");
-    headers.forEach(h => {
+    displayHeaders.forEach(h => {
       const th = document.createElement("th");
       th.textContent = h;
       if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(h)) th.classList.add("num");
@@ -161,23 +165,27 @@
       const tr = document.createElement("tr");
       tr.classList.add("clickable");
       tr.addEventListener("click", () => onRowClick(r));
-      r.forEach((c, idx) => {
+
+      displayHeaders.forEach(h => {
+        const idx = lbIdx[String(h).trim().toLowerCase()];
+        const c = idx !== undefined ? r[idx] : "";
+
         const td = document.createElement("td");
-        const header = headers[idx];
-        
-        // Display flags for Country columns with ISO codes
-        if (["Country 1", "Country 2", "Country 3"].includes(header)) {
-          const isoColName = header.replace("Country", "ISO").trim();
-          const isoIdx = lbIdx[isoColName.toLowerCase()];
+
+        // Display flags for Country columns using ISO1/ISO2/ISO3 (even though ISO cols are hidden)
+        if (["country 1","country 2","country 3"].includes(String(h).trim().toLowerCase())) {
+          const n = String(h).trim().slice(-1); // "1" / "2" / "3"
+          const isoIdx = lbIdx[("iso" + n)];
           const isoCode = isoIdx !== undefined ? String(r[isoIdx]).trim().toUpperCase() : "";
           td.innerHTML = isoToFlag(isoCode) + " " + escapeHtml(c);
         } else {
           td.textContent = c;
         }
-        
-        if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(header)) td.classList.add("num");
+
+        if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(h)) td.classList.add("num");
         tr.appendChild(td);
       });
+
       tbody.appendChild(tr);
     });
     tbl.appendChild(tbody);
