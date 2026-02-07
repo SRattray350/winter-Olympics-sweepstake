@@ -150,6 +150,7 @@
   }
 
   function ordinal(n) {
+    if (!n) return "";
     const s = ["th","st","nd","rd"];
     const v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
@@ -160,9 +161,9 @@
   let fullRows = [];
   let medalLog = [];
 
-  // map Player -> 🥇/🥈/🥉 (top 3 overall)
+  // map Player -> 🥇/🥈/🥉 (top 3 overall by rank)
   let topMedalsByPlayer = {};
-  // map Player -> position number (1,2,3...)
+  // map Player -> position number (ties share same position)
   let positionByPlayer = {};
 
   // ISO columns hidden from main table but still used for flags
@@ -182,7 +183,7 @@
     const thead = document.createElement("thead");
     const trh = document.createElement("tr");
 
-    // NEW: add Position column at the start
+    // Position column at the start
     const thPos = document.createElement("th");
     thPos.textContent = "Position";
     trh.appendChild(thPos);
@@ -204,7 +205,7 @@
       tr.classList.add("clickable");
       tr.addEventListener("click", () => onRowClick(r));
 
-      // NEW: position cell
+      // position cell (ties share position)
       const playerNameForPos = String(r[lbIdx["player"] ?? 0] || "").trim();
       const posNum = positionByPlayer[playerNameForPos];
       const tdPos = document.createElement("td");
@@ -218,13 +219,13 @@
         const td = document.createElement("td");
         const hLower = String(header).trim().toLowerCase();
 
-        // medal emoji next to Player name (top 3 overall)
+        // medal emoji next to Player name (top 3 positions, with ties)
         if (hLower === "player") {
           const name = String(cell || "");
           const medal = topMedalsByPlayer[String(name).trim()] || "";
           td.textContent = medal ? (medal + " " + name) : name;
         }
-        // Show flags next to Country 1/2/3 using ISO1/2/3 columns (which are hidden)
+        // flags next to Country 1/2/3 using ISO1/2/3 columns (hidden)
         else if (hLower === "country 1" || hLower === "country 2" || hLower === "country 3") {
           const n = hLower.endsWith("1") ? "1" : (hLower.endsWith("2") ? "2" : "3");
           const isoIdx = lbIdx["iso" + n];
@@ -319,20 +320,44 @@
 
     fullRows = data;
 
-    // Update top 3 medals map + positions map based on sorted full leaderboard
-    topMedalsByPlayer = {};
+    // Update positions with tie handling
     positionByPlayer = {};
+    topMedalsByPlayer = {};
 
-    const medals = ["🥇", "🥈", "🥉"];
+    const medalsByPos = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+    let currentPos = 0;   // position number (1-based)
+    let seen = 0;         // how many players we've iterated
+    let lastKey = null;   // last score key for tie comparison
+
     for (let i = 0; i < fullRows.length; i++) {
-      const playerName = String(fullRows[i][lbIdx["player"] ?? 0] || "").trim();
+      const row = fullRows[i];
+      const playerName = String(row[lbIdx["player"] ?? 0] || "").trim();
       if (!playerName) continue;
 
-      // position (1-based)
-      positionByPlayer[playerName] = i + 1;
+      // Build a tie-key that matches the sort criteria exactly (so ties share a position)
+      const key = [
+        toNumber(row[lbIdx["total"] ?? (leaderboardHeaders.length-1)]),
+        toNumber(row[lbIdx["points"] ?? 4]),
+        toNumber(row[lbIdx["gold"] ?? 1]),
+        toNumber(row[lbIdx["silver"] ?? 2]),
+        toNumber(row[lbIdx["bronze"] ?? 3])
+      ].join("|");
 
-      // top 3 medals
-      if (i < 3) topMedalsByPlayer[playerName] = medals[i];
+      seen += 1;
+
+      // If different from lastKey, advance position to "seen" (competition ranking)
+      if (lastKey === null || key !== lastKey) {
+        currentPos = seen;
+        lastKey = key;
+      }
+
+      positionByPlayer[playerName] = currentPos;
+
+      // Medal icons for positions 1/2/3 (including ties)
+      if (medalsByPos[currentPos]) {
+        topMedalsByPlayer[playerName] = medalsByPos[currentPos];
+      }
     }
 
     renderTable(leaderboardHeaders, data, showPlayer);
@@ -409,6 +434,9 @@
     const overlay = document.getElementById("overlay");
     const drawer = document.getElementById("drawer");
 
+    const posText = ordinal(positionByPlayer[player] || 0) || "—";
+    const medal = topMedalsByPlayer[player] || "";
+
     drawer.innerHTML = `
       <div class="closeRow">
         <h2>${escapeHtml(player)}</h2>
@@ -416,7 +444,7 @@
       </div>
 
       <div class="meta">
-        <span class="tag">Position: <strong>${escapeHtml(ordinal(positionByPlayer[player] || 0) || "—")}</strong></span>
+        <span class="tag">Position: <strong>${escapeHtml(posText)}</strong> ${medal ? medal : ""}</span>
         ${countries.map(c => `<span class="tag">${isoToFlag(c.iso)} ${escapeHtml(c.name)}</span>`).join("")}
         <span class="tag">Fav sport: <strong>${escapeHtml(fav || "—")}</strong></span>
       </div>
