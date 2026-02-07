@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Office Winter Olympics Sweepstake</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; max-width: 1100px; }
+    body { 
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; 
+      margin: 24px; 
+      max-width: 1100px;
+      background-image: url('background.png');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      background-repeat: no-repeat;
+    }
     h1 { margin: 0 0 6px 0; }
     .sub { color: #555; margin: 0 0 18px 0; }
     .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 10px 0 18px; }
@@ -56,6 +65,12 @@
 
   <div id="overlay" class="overlay"></div>
   <div id="drawer" class="drawer"></div>
+
+  <!-- Audio player - hidden but autoplays -->
+  <audio id="bgMusic" autoplay loop>
+    <source src="music.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
 
 <script>
   // ====== SET THESE TWO URLS ======
@@ -280,7 +295,7 @@
         <td class="num">${e.extra}</td>
         <td class="num">${e.total}</td>
       </tr>
-    `).join("") : `<tr><td colspan="8" class="small">No medals recorded yet for this player’s countries.</td></tr>`;
+    `).join("") : `<tr><td colspan="8" class="small">No medals recorded yet for this player's countries.</td></tr>`;
 
     const overlay = document.getElementById("overlay");
     const drawer = document.getElementById("drawer");
