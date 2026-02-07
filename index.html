@@ -91,9 +91,10 @@
   // Convert ISO country code to flag emoji
   function isoToFlag(iso) {
     if (!iso || iso.length !== 2) return "";
+    const up = iso.toUpperCase();
     return String.fromCodePoint(
-      0x1F1E6 + iso.charCodeAt(0) - 65,
-      0x1F1E6 + iso.charCodeAt(1) - 65
+      0x1F1E6 + up.charCodeAt(0) - 65,
+      0x1F1E6 + up.charCodeAt(1) - 65
     );
   }
 
@@ -141,17 +142,38 @@
       .replaceAll("'", "&#039;");
   }
 
+  function buildIndex(headers) {
+    const idx = {};
+    headers.forEach((h, i) => idx[String(h).trim().toLowerCase()] = i);
+    return idx;
+  }
+
+  let leaderboardHeaders = [];
+  let lbIdx = {};
+  let fullRows = [];
+  let medalLog = [];
+
+  // NEW: map Player -> 🥇/🥈/🥉 for top 3 overall
+  let topMedalsByPlayer = {};
+
+  // ---- ISO columns hidden from main table but still used for flags ----
   function renderTable(headers, data, onRowClick) {
     const tbl = document.getElementById("tbl");
     tbl.innerHTML = "";
 
-    // --- remove ISO columns from main table ---
-    const isoHeadersLower = new Set(["iso1","iso2","iso3"]);
-    const displayHeaders = headers.filter(h => !isoHeadersLower.has(String(h).trim().toLowerCase()));
+    const hideCols = new Set(["iso1","iso2","iso3"]); // hidden from main table
+
+    // Build a list of visible column indexes, in original order
+    const visibleCols = [];
+    headers.forEach((h, i) => {
+      const key = String(h).trim().toLowerCase();
+      if (!hideCols.has(key)) visibleCols.push(i);
+    });
 
     const thead = document.createElement("thead");
     const trh = document.createElement("tr");
-    displayHeaders.forEach(h => {
+    visibleCols.forEach((i) => {
+      const h = headers[i];
       const th = document.createElement("th");
       th.textContent = h;
       if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(h)) th.classList.add("num");
@@ -166,23 +188,30 @@
       tr.classList.add("clickable");
       tr.addEventListener("click", () => onRowClick(r));
 
-      displayHeaders.forEach(h => {
-        const idx = lbIdx[String(h).trim().toLowerCase()];
-        const c = idx !== undefined ? r[idx] : "";
+      visibleCols.forEach((i) => {
+        const header = headers[i];
+        const cell = r[i];
 
         const td = document.createElement("td");
+        const hLower = String(header).trim().toLowerCase();
 
-        // Display flags for Country columns using ISO1/ISO2/ISO3 (even though ISO cols are hidden)
-        if (["country 1","country 2","country 3"].includes(String(h).trim().toLowerCase())) {
-          const n = String(h).trim().slice(-1); // "1" / "2" / "3"
-          const isoIdx = lbIdx[("iso" + n)];
+        // NEW: medal emoji next to Player name (top 3 overall)
+        if (hLower === "player") {
+          const name = String(cell || "");
+          const medal = topMedalsByPlayer[String(name).trim()] || "";
+          td.textContent = medal ? (medal + " " + name) : name;
+        }
+        // Show flags next to Country 1/2/3 using ISO1/2/3 columns (which are hidden)
+        else if (hLower === "country 1" || hLower === "country 2" || hLower === "country 3") {
+          const n = hLower.endsWith("1") ? "1" : (hLower.endsWith("2") ? "2" : "3");
+          const isoIdx = lbIdx["iso" + n];
           const isoCode = isoIdx !== undefined ? String(r[isoIdx]).trim().toUpperCase() : "";
-          td.innerHTML = isoToFlag(isoCode) + " " + escapeHtml(c);
+          td.innerHTML = isoToFlag(isoCode) + " " + escapeHtml(cell);
         } else {
-          td.textContent = c;
+          td.textContent = cell;
         }
 
-        if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(h)) td.classList.add("num");
+        if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(header)) td.classList.add("num");
         tr.appendChild(td);
       });
 
@@ -190,17 +219,6 @@
     });
     tbl.appendChild(tbody);
   }
-
-  function buildIndex(headers) {
-    const idx = {};
-    headers.forEach((h, i) => idx[String(h).trim().toLowerCase()] = i);
-    return idx;
-  }
-
-  let leaderboardHeaders = [];
-  let lbIdx = {};
-  let fullRows = [];
-  let medalLog = [];
 
   async function loadMedalLog() {
     const res = await fetch(withNoCache(MEDALLOG_CSV_URL), { cache: "no-store" });
@@ -277,6 +295,15 @@
       );
 
     fullRows = data;
+
+    // NEW: update top 3 medals map based on sorted full leaderboard
+    topMedalsByPlayer = {};
+    const medals = ["🥇", "🥈", "🥉"];
+    for (let i = 0; i < 3 && i < fullRows.length; i++) {
+      const playerName = String(fullRows[i][lbIdx["player"] ?? 0] || "").trim();
+      if (playerName) topMedalsByPlayer[playerName] = medals[i];
+    }
+
     renderTable(leaderboardHeaders, data, showPlayer);
 
     document.getElementById("updated").textContent =
