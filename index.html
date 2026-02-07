@@ -61,6 +61,7 @@
     <h1>Office Winter Olympics Sweepstake</h1>
     <p class="sub">
       Live leaderboard (auto-refreshing). <span id="status" class="pill">Loading…</span>
+      <span class="pill" style="margin-left:8px;">Tip: You can now click player names for a breakdown of their score</span>
     </p>
 
     <div class="row">
@@ -148,15 +149,23 @@
     return idx;
   }
 
+  function ordinal(n) {
+    const s = ["th","st","nd","rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+
   let leaderboardHeaders = [];
   let lbIdx = {};
   let fullRows = [];
   let medalLog = [];
 
-  // NEW: map Player -> 🥇/🥈/🥉 for top 3 overall
+  // map Player -> 🥇/🥈/🥉 (top 3 overall)
   let topMedalsByPlayer = {};
+  // map Player -> position number (1,2,3...)
+  let positionByPlayer = {};
 
-  // ---- ISO columns hidden from main table but still used for flags ----
+  // ISO columns hidden from main table but still used for flags
   function renderTable(headers, data, onRowClick) {
     const tbl = document.getElementById("tbl");
     tbl.innerHTML = "";
@@ -172,6 +181,12 @@
 
     const thead = document.createElement("thead");
     const trh = document.createElement("tr");
+
+    // NEW: add Position column at the start
+    const thPos = document.createElement("th");
+    thPos.textContent = "Position";
+    trh.appendChild(thPos);
+
     visibleCols.forEach((i) => {
       const h = headers[i];
       const th = document.createElement("th");
@@ -179,6 +194,7 @@
       if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(h)) th.classList.add("num");
       trh.appendChild(th);
     });
+
     thead.appendChild(trh);
     tbl.appendChild(thead);
 
@@ -188,6 +204,13 @@
       tr.classList.add("clickable");
       tr.addEventListener("click", () => onRowClick(r));
 
+      // NEW: position cell
+      const playerNameForPos = String(r[lbIdx["player"] ?? 0] || "").trim();
+      const posNum = positionByPlayer[playerNameForPos];
+      const tdPos = document.createElement("td");
+      tdPos.textContent = posNum ? ordinal(posNum) : "";
+      tr.appendChild(tdPos);
+
       visibleCols.forEach((i) => {
         const header = headers[i];
         const cell = r[i];
@@ -195,7 +218,7 @@
         const td = document.createElement("td");
         const hLower = String(header).trim().toLowerCase();
 
-        // NEW: medal emoji next to Player name (top 3 overall)
+        // medal emoji next to Player name (top 3 overall)
         if (hLower === "player") {
           const name = String(cell || "");
           const medal = topMedalsByPlayer[String(name).trim()] || "";
@@ -296,12 +319,20 @@
 
     fullRows = data;
 
-    // NEW: update top 3 medals map based on sorted full leaderboard
+    // Update top 3 medals map + positions map based on sorted full leaderboard
     topMedalsByPlayer = {};
+    positionByPlayer = {};
+
     const medals = ["🥇", "🥈", "🥉"];
-    for (let i = 0; i < 3 && i < fullRows.length; i++) {
+    for (let i = 0; i < fullRows.length; i++) {
       const playerName = String(fullRows[i][lbIdx["player"] ?? 0] || "").trim();
-      if (playerName) topMedalsByPlayer[playerName] = medals[i];
+      if (!playerName) continue;
+
+      // position (1-based)
+      positionByPlayer[playerName] = i + 1;
+
+      // top 3 medals
+      if (i < 3) topMedalsByPlayer[playerName] = medals[i];
     }
 
     renderTable(leaderboardHeaders, data, showPlayer);
@@ -385,6 +416,7 @@
       </div>
 
       <div class="meta">
+        <span class="tag">Position: <strong>${escapeHtml(ordinal(positionByPlayer[player] || 0) || "—")}</strong></span>
         ${countries.map(c => `<span class="tag">${isoToFlag(c.iso)} ${escapeHtml(c.name)}</span>`).join("")}
         <span class="tag">Fav sport: <strong>${escapeHtml(fav || "—")}</strong></span>
       </div>
