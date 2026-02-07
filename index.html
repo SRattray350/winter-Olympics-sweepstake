@@ -1,641 +1,347 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Office Winter Olympics Sweepstake</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Office Winter Olympics Sweepstake</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; max-width: 1100px; }
+    h1 { margin: 0 0 6px 0; }
+    .sub { color: #555; margin: 0 0 18px 0; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 10px 0 18px; }
+    input { padding: 10px; border: 1px solid #ddd; border-radius: 10px; min-width: 260px; }
+    button { padding: 10px 12px; border: 1px solid #ddd; background: #fff; border-radius: 10px; cursor: pointer; }
+    button:hover { background: #f6f6f6; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #eee; padding: 10px 8px; text-align: left; }
+    th { font-weight: 650; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover { background: #fafafa; }
+    .pill { display:inline-block; padding: 3px 10px; border: 1px solid #eee; border-radius: 999px; font-size: 12px; color:#555; }
+    .muted { color:#777; font-size: 13px; }
 
-<style>
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-
-    /* Your repo background */
-    background:
-      linear-gradient(rgba(0,0,0,0.60), rgba(0,0,0,0.60)),
-      url("background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-
-    min-height: 100vh;
-    color: #111;
-  }
-
-  .wrap {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 24px;
-  }
-
-  .card {
-    background: rgba(255,255,255,0.92);
-    border-radius: 18px;
-    padding: 18px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.25);
-
-    /* Make sure card contains children and doesn't visually break when inner content scrolls */
-    overflow: hidden;
-  }
-
-  h1 { margin: 0 0 6px; }
-  .sub { color: #555; margin: 0 0 14px; }
-
-  .row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: center;
-    margin-bottom: 14px;
-  }
-
-  /* allow input to shrink on small screens while still being usable */
-  input {
-    padding: 10px;
-    border-radius: 10px;
-    border: 1px solid #ddd;
-    min-width: 260px;
-    flex: 1 1 260px;
-    box-sizing: border-box;
-  }
-
-  button {
-    padding: 10px 14px;
-    border-radius: 10px;
-    border: 1px solid #ddd;
-    background: #fff;
-    cursor: pointer;
-    font-weight: 650;
-    flex: 0 0 auto;
-  }
-  button:hover { background: #f4f4f4; }
-
-  .pill {
-    padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px solid #ddd;
-    font-size: 12px;
-    color: #444;
-    background: rgba(255,255,255,0.75);
-  }
-
-  /* New wrapper: keep the white card visual intact and enable horizontal scroll on small screens */
-  .tableWrap {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    /* ensure some breathing room inside the card when table scrolls */
-    padding-bottom: 6px;
-    margin-top: 6px;
-  }
-
-  table { 
-    width: 100%; 
-    border-collapse: collapse; 
-    /* prefer to allow inner table to be wide while keeping it scrollable inside .tableWrap */
-    min-width: 720px;
-  }
-  th, td { padding: 10px 8px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
-  th { text-align: left; font-weight: 800; }
-
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-
-  .countryCell {
-    white-space: nowrap;
-  }
-
-  img.flag {
-    vertical-align: middle;
-    margin-right: 6px;
-    border-radius: 2px;
-    border: 1px solid rgba(0,0,0,0.15);
-    width: 20px;
-    height: 15px;
-  }
-
-  /* medal badges for top 3 */
-  .medal {
-    display: inline-block;
-    width: 26px;
-    height: 26px;
-    line-height: 26px;
-    text-align: center;
-    border-radius: 50%;
-    margin-right: 8px;
-    font-size: 14px;
-    vertical-align: middle;
-  }
-  .medal.gold   { background: linear-gradient(#ffd700,#f0c000); color: #5a3700; }
-  .medal.silver { background: linear-gradient(#e8e8e8,#cfcfcf); color: #2b2b2b; }
-  .medal.bronze { background: linear-gradient(#c68a4b,#9b6a3a); color: #2b1400; }
-
-  .playerWithMedal { display: inline-flex; align-items: center; gap: 6px; }
-
-  /* screen-reader-only helper if you want visible-less labels */
-  .sr-only {
-    position: absolute !important;
-    height: 1px; width: 1px;
-    overflow: hidden;
-    clip: rect(1px, 1px, 1px, 1px);
-    white-space: nowrap;
-  }
-
-  #yt { width: 0; height: 0; overflow: hidden; }
-
-  /* Responsive tweaks */
-  @media (max-width: 800px) {
-    .wrap { padding: 16px; }
-    .card { padding: 14px; border-radius: 14px; }
-    input { min-width: 0; flex: 1 1 160px; }
-    table { min-width: 640px; }
-    img.flag { width: 18px; height: 13px; }
-    .medal { width: 22px; height: 22px; line-height:22px; font-size:12px; }
-  }
-
-  @media (max-width: 480px) {
-    .wrap { padding: 12px; }
-    .row { gap: 8px; }
-    .card { padding: 12px; }
-    .pill { font-size: 11px; }
-    table { min-width: 560px; }
-    th, td { padding: 8px 6px; }
-  }
-</style>
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); display: none; }
+    .drawer {
+      position: fixed; top: 0; right: 0; height: 100%; width: min(560px, 94vw);
+      background: #fff; border-left: 1px solid #eee; box-shadow: -10px 0 40px rgba(0,0,0,0.08);
+      padding: 18px; overflow: auto; display: none;
+    }
+    .drawer h2 { margin: 0 0 8px 0; font-size: 20px; }
+    .meta { display:flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .tag { background:#f6f6f6; border:1px solid #eee; border-radius: 999px; padding: 4px 10px; font-size: 12px; color:#444; }
+    .closeRow { display:flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .closeBtn { border-radius: 10px; }
+    .kpi { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 8px 0 14px; }
+    .card { border: 1px solid #eee; border-radius: 14px; padding: 10px 12px; }
+    .card .big { font-size: 18px; font-weight: 700; }
+    .card .lbl { font-size: 12px; color:#666; }
+    .sectionTitle { margin: 14px 0 8px; font-size: 14px; color:#555; font-weight: 650; }
+    .small { font-size: 12px; color:#666; }
+  </style>
 </head>
-
 <body>
-<div class="wrap">
-  <div class="card">
-    <h1>Office Winter Olympics Sweepstake</h1>
-    <p class="sub">
-      Live leaderboard (auto-refreshing). <span id="status" class="pill">Loading…</span>
-    </p>
+  <h1>Office Winter Olympics Sweepstake</h1>
+  <p class="sub">
+    Live leaderboard (auto-refreshing). <span id="status" class="pill">Loading…</span>
+  </p>
 
-    <div class="row">
-      <label for="search" class="sr-only">Search player</label>
-      <input id="search" placeholder="Search player…" aria-label="Search player" />
-      <button id="refresh">Refresh</button>
-      <button id="musicBtn" aria-pressed="false">🔥 Intense music</button>
-      <span id="updated" class="pill"></span>
-    </div>
-
-    <!-- Wrapped the table in a horizontally-scrollable container so it never visually escapes the white card -->
-    <div class="tableWrap" aria-hidden="false">
-      <table id="tbl" aria-live="polite"></table>
-    </div>
+  <div class="row">
+    <input id="search" placeholder="Search player…" />
+    <button id="refresh">Refresh now</button>
+    <span id="updated" class="muted"></span>
   </div>
-</div>
 
-<div id="yt" aria-hidden="true"></div>
+  <table id="tbl"></table>
+
+  <div id="overlay" class="overlay"></div>
+  <div id="drawer" class="drawer"></div>
 
 <script>
-/* ============================
-   CONFIG
-============================ */
-const CSV_URL =
-"https://docs.google.com/spreadsheets/d/e/2PACX-1vTv_B6jdgEx4q3c9uhSISHuVdhUfubFMblfU0FJXop_rv7jniIO_y44H-ARvrjassAOOi0xhDIgxMYW/pub?gid=37582016&single=true&output=csv";
+  // ====== SET THESE TWO URLS ======
+  const LEADERBOARD_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTv_B6jdgEx4q3c9uhSISHuVdhUfubFMblfU0FJXop_rv7jniIO_y44H-ARvrjassAOOi0xhDIgxMYW/pub?gid=37582016&single=true&output=csv";
+  const MEDALLOG_CSV_URL    = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTv_B6jdgEx4q3c9uhSISHuVdhUfubFMblfU0FJXop_rv7jniIO_y44H-ARvrjassAOOi0xhDIgxMYW/pub?gid=1029591436&single=true&output=csv";
 
-const VIDEO_ID = "zRs58D34OLY";
+  const withNoCache = (url) => url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
 
-/* ============================
-   HELPERS
-============================ */
-const csvNoCache = () => CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
-
-function parseCSV(text) {
-  const rows = [];
-  let row = [], field = "", inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    const next = text[i + 1];
-
-    if (c === '"' && inQuotes && next === '"') { field += '"'; i++; continue; }
-    if (c === '"') { inQuotes = !inQuotes; continue; }
-
-    if (c === "," && !inQuotes) { row.push(field); field = ""; continue; }
-    if ((c === "\n" || c === "\r") && !inQuotes) {
-      if (c === "\r" && next === "\n") i++;
-      row.push(field);
-      if (row.some(x => String(x).trim() !== "")) rows.push(row);
-      row = []; field = "";
-      continue;
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = "", inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i], next = text[i + 1];
+      if (c === '"' && inQuotes && next === '"') { field += '"'; i++; continue; }
+      if (c === '"') { inQuotes = !inQuotes; continue; }
+      if (c === "," && !inQuotes) { row.push(field); field = ""; continue; }
+      if ((c === "\n" || c === "\r") && !inQuotes) {
+        if (c === "\r" && next === "\n") i++;
+        row.push(field);
+        if (row.some(x => String(x).trim() !== "")) rows.push(row);
+        row = []; field = "";
+        continue;
+      }
+      field += c;
     }
-    field += c;
+    row.push(field);
+    if (row.some(x => String(x).trim() !== "")) rows.push(row);
+    return rows;
   }
 
-  row.push(field);
-  if (row.some(x => String(x).trim() !== "")) rows.push(row);
-  return rows;
-}
+  const medalPoints = (medal) => {
+    const m = String(medal || "").trim().toLowerCase();
+    if (m === "gold") return 3;
+    if (m === "silver") return 2;
+    if (m === "bronze") return 1;
+    return 0;
+  };
 
-function toNum(x) {
-  const n = Number(String(x ?? "").replace(/[^\d.-]/g, ""));
-  return Number.isFinite(n) ? n : 0;
-}
+  function toNumber(x) {
+    const n = Number(String(x).replace(/[^\d.-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
 
-function headerMap(headers) {
-  const m = new Map();
-  headers.forEach((h, i) => m.set(String(h).trim().toLowerCase(), i)); // TRIM fixes "Bronze "
-  return m;
-}
+  function escapeHtml(s) {
+    return String(s || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
-function buildFlagImg(code) {
-  if (!code) return null;
-  const c = String(code).trim().toLowerCase();
-  if (!/^[a-z]{2}$/.test(c)) return null;
-  const img = document.createElement('img');
-  img.className = 'flag';
-  img.src = `https://flagcdn.com/w20/${c}.png`;
-  img.srcset = `https://flagcdn.com/w40/${c}.png 2x`;
-  img.width = 20; img.height = 15;
-  img.alt = c;
-  img.loading = 'lazy';
-  return img;
-}
+  function renderTable(headers, data, onRowClick) {
+    const tbl = document.getElementById("tbl");
+    tbl.innerHTML = "";
 
-/* ============================
-   RENDER (safe DOM creation)
-============================ */
-let cachedHeaders = [];
-let cachedRows = []; // array of { vals: [...], totalNum: number }
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    headers.forEach(h => {
+      const th = document.createElement("th");
+      th.textContent = h;
+      if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(h)) th.classList.add("num");
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    tbl.appendChild(thead);
 
-function render(headers, dataRows) {
-  const h = headerMap(headers);
+    const tbody = document.createElement("tbody");
+    data.forEach(r => {
+      const tr = document.createElement("tr");
+      tr.classList.add("clickable");
+      tr.addEventListener("click", () => onRowClick(r));
+      r.forEach((c, idx) => {
+        const td = document.createElement("td");
+        td.textContent = c;
+        if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(headers[idx])) td.classList.add("num");
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+  }
 
-  const idxPlayer = h.get("player") ?? 0;
-  const idxGold   = h.get("gold");
-  const idxSilver = h.get("silver");
-  const idxBronze = h.get("bronze");
-  const idxPoints = h.get("points");
-  const idxFav    = h.get("favourite sport") ?? h.get("favorite sport");
-  const idxBonus  = h.get("bonus");
-  const idxTotal  = h.get("total");
+  function buildIndex(headers) {
+    const idx = {};
+    headers.forEach((h, i) => idx[String(h).trim().toLowerCase()] = i);
+    return idx;
+  }
 
-  const idxC1 = h.get("country 1");
-  const idxC2 = h.get("country 2");
-  const idxC3 = h.get("country 3");
-  const idxISO1 = h.get("iso1");
-  const idxISO2 = h.get("iso2");
-  const idxISO3 = h.get("iso3");
+  let leaderboardHeaders = [];
+  let lbIdx = {};
+  let fullRows = [];
+  let medalLog = [];
 
-  const tbl = document.getElementById("tbl");
-  tbl.innerHTML = "";
-
-  // build header
-  const thead = document.createElement("thead");
-  thead.innerHTML = `
-    <tr>
-      <th>Player</th>
-      <th class="num">Gold</th>
-      <th class="num">Silver</th>
-      <th class="num">Bronze</th>
-      <th class="num">Points</th>
-      <th>Country 1</th>
-      <th>Country 2</th>
-      <th>Country 3</th>
-      <th>Favourite sport</th>
-      <th class="num">Bonus</th>
-      <th class="num">Total</th>
-    </tr>`;
-  tbl.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-
-  // Determine medal totals for ties: distinct totals sorted desc
-  const distinctTotals = Array.from(new Set(dataRows.map(r => r.totalNum))).sort((a,b) => b - a);
-  const goldTotal = distinctTotals[0];
-  const silverTotal = distinctTotals[1];
-  const bronzeTotal = distinctTotals[2];
-
-  dataRows.forEach((rObj) => {
-    const r = rObj.vals;
-    const tr = document.createElement("tr");
-
-    const player = r[idxPlayer] ?? "";
-
-    const gold   = idxGold   != null ? (r[idxGold]   ?? "") : "";
-    const silver = idxSilver != null ? (r[idxSilver] ?? "") : "";
-    const bronze = idxBronze != null ? (r[idxBronze] ?? "") : "";
-    const points = idxPoints != null ? (r[idxPoints] ?? "") : "";
-
-    const c1 = idxC1 != null ? (r[idxC1] ?? "") : "";
-    const c2 = idxC2 != null ? (r[idxC2] ?? "") : "";
-    const c3 = idxC3 != null ? (r[idxC3] ?? "") : "";
-
-    const iso1 = idxISO1 != null ? (r[idxISO1] ?? "") : "";
-    const iso2 = idxISO2 != null ? (r[idxISO2] ?? "") : "";
-    const iso3 = idxISO3 != null ? (r[idxISO3] ?? "") : "";
-
-    const fav   = idxFav   != null ? (r[idxFav]   ?? "") : "";
-    const bonus = idxBonus != null ? (r[idxBonus] ?? "") : "";
-
-    const totalNum = rObj.totalNum;
-
-    // medal assignment based on numeric totals (ties get same medal)
-    let medalEl = null;
-    if (totalNum === goldTotal) {
-      medalEl = document.createElement('span');
-      medalEl.className = 'medal gold';
-      medalEl.setAttribute('aria-hidden', 'true');
-      medalEl.textContent = '🥇';
-    } else if (totalNum === silverTotal) {
-      medalEl = document.createElement('span');
-      medalEl.className = 'medal silver';
-      medalEl.setAttribute('aria-hidden', 'true');
-      medalEl.textContent = '🥈';
-    } else if (totalNum === bronzeTotal) {
-      medalEl = document.createElement('span');
-      medalEl.className = 'medal bronze';
-      medalEl.setAttribute('aria-hidden', 'true');
-      medalEl.textContent = '🥉';
-    }
-
-    // Player cell
-    const tdPlayer = document.createElement('td');
-    const wrap = document.createElement('span');
-    wrap.className = 'playerWithMedal';
-    if (medalEl) wrap.appendChild(medalEl);
-    const playerSpan = document.createElement('span');
-    playerSpan.className = 'playerName';
-    playerSpan.textContent = String(player);
-    wrap.appendChild(playerSpan);
-    tdPlayer.appendChild(wrap);
-    tr.appendChild(tdPlayer);
-
-    const makeNumTd = (val) => {
-      const td = document.createElement('td');
-      td.className = 'num';
-      td.textContent = String(toNum(val));
-      return td;
-    };
-
-    tr.appendChild(makeNumTd(gold));
-    tr.appendChild(makeNumTd(silver));
-    tr.appendChild(makeNumTd(bronze));
-    tr.appendChild(makeNumTd(points));
-
-    const makeCountryTd = (name, iso) => {
-      const td = document.createElement('td');
-      td.className = 'countryCell';
-      const img = buildFlagImg(iso);
-      if (img) td.appendChild(img);
-      td.appendChild(document.createTextNode(String(name)));
-      return td;
-    };
-
-    tr.appendChild(makeCountryTd(c1, iso1));
-    tr.appendChild(makeCountryTd(c2, iso2));
-    tr.appendChild(makeCountryTd(c3, iso3));
-
-    const favTd = document.createElement('td');
-    favTd.textContent = String(fav);
-    tr.appendChild(favTd);
-
-    tr.appendChild(makeNumTd(bonus));
-
-    const totalTd = document.createElement('td');
-    totalTd.className = 'num';
-    const b = document.createElement('b');
-    b.textContent = String(totalNum);
-    totalTd.appendChild(b);
-    tr.appendChild(totalTd);
-
-    tbody.appendChild(tr);
-  });
-
-  tbl.appendChild(tbody);
-}
-
-/* ============================
-   LOAD + SEARCH + DEBOUNCE
-============================ */
-let fetchInProgress = false;
-
-async function load() {
-  const statusEl = document.getElementById("status");
-  statusEl.textContent = "Updating…";
-  try {
-    fetchInProgress = true;
-    const res = await fetch(csvNoCache(), { cache: "no-store" });
-    if (!res.ok) {
-      statusEl.textContent = "Error fetching data";
-      console.error("Fetch error", res.status, res.statusText);
-      fetchInProgress = false;
-      return;
-    }
-    let text = await res.text();
-    // strip BOM if present
-    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-
+  async function loadMedalLog() {
+    const res = await fetch(withNoCache(MEDALLOG_CSV_URL), { cache: "no-store" });
+    const text = await res.text();
     const rows = parseCSV(text).filter(r => r.some(c => String(c).trim() !== ""));
+    if (rows.length < 2) return [];
 
-    if (rows.length < 2) {
-      document.getElementById("status").textContent = "No data";
-      fetchInProgress = false;
+    const headers = rows[0].map(h => String(h).trim().toLowerCase());
+
+    // Flexible header mapping
+    const iDate = headers.indexOf("date");
+    const iTimestamp = headers.indexOf("timestamp");
+    const iSport = headers.indexOf("sport");
+    const iEvent = headers.indexOf("event");
+    const iMedal = headers.indexOf("medal");
+    const iCountry = headers.indexOf("country");
+
+    const dateIdx = iDate >= 0 ? iDate : (iTimestamp >= 0 ? iTimestamp : 0);
+    const sportIdx = iSport >= 0 ? iSport : 1;
+    const eventIdx = iEvent >= 0 ? iEvent : 2;
+    const medalIdx = iMedal >= 0 ? iMedal : 3;
+    const countryIdx = iCountry >= 0 ? iCountry : 4;
+
+    return rows.slice(1)
+      .filter(r => String(r[sportIdx] || "").trim() && String(r[countryIdx] || "").trim() && String(r[medalIdx] || "").trim())
+      .map(r => ({
+        date: String(r[dateIdx] || "").trim(),
+        sport: String(r[sportIdx] || "").trim(),
+        event: String(r[eventIdx] || "").trim(),
+        medal: String(r[medalIdx] || "").trim(),
+        country: String(r[countryIdx] || "").trim(),
+      }));
+  }
+
+  async function loadAll() {
+    const status = document.getElementById("status");
+    status.textContent = "Updating…";
+
+    const [lbRes, ml] = await Promise.all([
+      fetch(withNoCache(LEADERBOARD_CSV_URL), { cache: "no-store" }),
+      loadMedalLog()
+    ]);
+
+    medalLog = ml;
+
+    const lbText = await lbRes.text();
+    const lbRows = parseCSV(lbText).filter(r => r.some(c => String(c).trim() !== ""));
+    if (lbRows.length < 2) {
+      status.textContent = "No data yet";
+      renderTable(["Player","Gold","Silver","Bronze","Points","Bonus","Total"], [], () => {});
       return;
     }
 
-    const headers = rows[0];
-    const h = headerMap(headers);
+    leaderboardHeaders = lbRows[0].map(h => String(h).trim());
+    lbIdx = buildIndex(leaderboardHeaders);
 
-    const idxPlayer = h.get("player") ?? 0;
-    const idxGold   = h.get("gold");
-    const idxSilver = h.get("silver");
-    const idxBronze = h.get("bronze");
-    const idxPoints = h.get("points");
-    const idxBonus  = h.get("bonus");
-    const idxTotal  = h.get("total");
-
-    // Clean + pad rows -> convert to objects with computed totalNum
-    let data = rows.slice(1)
-      .filter(r => String(r[idxPlayer] ?? "").trim() !== "")
+    const data = lbRows.slice(1)
+      .filter(r => String(r[0] || "").trim() !== "")
       .map(r => {
         const padded = [...r];
-        while (padded.length < headers.length) padded.push("");
-        // compute numeric total: prefer Total col (if present) else points+bonus
-        const totalNum = idxTotal != null
-          ? toNum(padded[idxTotal])
-          : (toNum(idxPoints != null ? padded[idxPoints] : 0) + toNum(idxBonus != null ? padded[idxBonus] : 0));
-        return { vals: padded, totalNum };
-      });
+        while (padded.length < leaderboardHeaders.length) padded.push("");
+        return padded;
+      })
+      .sort((a,b) =>
+        toNumber(b[lbIdx["total"] ?? (leaderboardHeaders.length-1)]) - toNumber(a[lbIdx["total"] ?? (leaderboardHeaders.length-1)]) ||
+        toNumber(b[lbIdx["points"] ?? 4]) - toNumber(a[lbIdx["points"] ?? 4]) ||
+        toNumber(b[lbIdx["gold"] ?? 1]) - toNumber(a[lbIdx["gold"] ?? 1]) ||
+        toNumber(b[lbIdx["silver"] ?? 2]) - toNumber(a[lbIdx["silver"] ?? 2]) ||
+        toNumber(b[lbIdx["bronze"] ?? 3]) - toNumber(a[lbIdx["bronze"] ?? 3]) ||
+        String(a[0]).localeCompare(String(b[0]))
+      );
 
-    // Sort: by totalNum desc, then gold desc, silver desc, bronze desc, player name asc
-    data.sort((a, b) => {
-      const aVals = a.vals, bVals = b.vals;
-      const aTotal = a.totalNum, bTotal = b.totalNum;
-      if (bTotal !== aTotal) return bTotal - aTotal;
+    fullRows = data;
+    renderTable(leaderboardHeaders, data, showPlayer);
 
-      const cmpNumDesc = (idx) => {
-        if (idx == null) return 0;
-        return toNum(bVals[idx]) - toNum(aVals[idx]);
-      };
+    document.getElementById("updated").textContent =
+      "Last refreshed: " + new Date().toLocaleString();
 
-      const r = cmpNumDesc(idxGold) || cmpNumDesc(idxSilver) || cmpNumDesc(idxBronze);
-      if (r !== 0) return r;
-
-      return String(aVals[idxPlayer]).localeCompare(String(bVals[idxPlayer]));
-    });
-
-    cachedHeaders = headers;
-    cachedRows = data;
-
-    applySearch();
-
-    document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString();
-    statusEl.textContent = "Live";
-    fetchInProgress = false;
-  } catch (err) {
-    console.error(err);
-    document.getElementById("status").textContent = "Error";
-    fetchInProgress = false;
-  }
-}
-
-function applySearch() {
-  if (!cachedHeaders.length) return;
-  const h = headerMap(cachedHeaders);
-  const idxPlayer = h.get("player") ?? 0;
-  const q = document.getElementById("search").value.trim().toLowerCase();
-  const filtered = !q ? cachedRows : cachedRows.filter(r => String(r.vals[idxPlayer]).toLowerCase().includes(q));
-  render(cachedHeaders, filtered);
-}
-
-// simple debounce
-function debounce(fn, wait = 200) {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), wait);
-  };
-}
-
-document.getElementById("refresh").onclick = () => {
-  if (!fetchInProgress) load();
-};
-document.getElementById("search").addEventListener("input", debounce(applySearch, 150));
-
-load();
-setInterval(load, 60_000);
-
-/* ============================
-   MUSIC (YouTube IFrame API - autoplay muted, unmute on user click)
-   This approach maximizes the chance the music actually starts (muted autoplay is permitted)
-   and allows unmuting on the user's click (a user gesture).
-============================ */
-let player = null;
-let playing = false;
-const musicBtn = document.getElementById("musicBtn");
-
-// Load the IFrame Player API code asynchronously.
-function loadYouTubeAPI() {
-  if (window.YT && window.YT.Player) return Promise.resolve();
-  return new Promise((resolve) => {
-    const tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    const firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-    // onYouTubeIframeAPIReady will resolve by creating the player and setting it up;
-    // we'll wait a moment — the API will call window.onYouTubeIframeAPIReady once ready.
-    // We'll resolve after a short timeout if needed.
-    setTimeout(resolve, 1500);
-  });
-}
-
-// API callback (must be global)
-window.onYouTubeIframeAPIReady = function() {
-  // create player muted and attempt to autoplay (muted autoplay usually allowed)
-  player = new YT.Player('yt', {
-    width: '0',
-    height: '0',
-    videoId: VIDEO_ID,
-    playerVars: {
-      autoplay: 1,
-      loop: 1,
-      playlist: VIDEO_ID,
-      controls: 0,
-      rel: 0,
-      modestbranding: 1
-    },
-    events: {
-      onReady: (e) => {
-        try {
-          e.target.mute();
-        } catch (err) { /* ignore */ }
-        try {
-          e.target.playVideo();
-        } catch (err) { /* ignore */ }
-      },
-      onError: (e) => {
-        console.error('YT player error', e);
-      }
-    }
-  });
-};
-
-(async function ensureYT() {
-  // attempt to load API early so player is ready when user clicks
-  await loadYouTubeAPI();
-  if (window.YT && window.YT.Player && !player) {
-    // if API ready, onYouTubeIframeAPIReady will run and create player
-    // but if it hasn't, create one explicitly
-    if (typeof window.onYouTubeIframeAPIReady === 'function') {
-      // wait a short time for global callback to run
-      setTimeout(() => {
-        if (!player && window.YT && window.YT.Player) {
-          // fallback: create a player now
-          try {
-            window.onYouTubeIframeAPIReady();
-          } catch (e) { /* ignore */ }
-        }
-      }, 500);
-    }
-  }
-})();
-
-musicBtn.addEventListener('click', async () => {
-  // If player isn't available yet, ensure API and wait a short while
-  if (!player) {
-    await loadYouTubeAPI();
-    // give API a moment to call the ready callback and create the player
-    await new Promise(res => setTimeout(res, 600));
+    status.textContent = "Live";
   }
 
-  if (!player) {
-    // fallback: insert a plain iframe (muted) so something plays, then allow unmute next click
-    const yt = document.getElementById('yt');
-    if (!yt.querySelector('iframe')) {
-      yt.innerHTML = `<iframe width="0" height="0" title="Background music"
-        src="https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&loop=1&playlist=${VIDEO_ID}&mute=1"
-        allow="autoplay; encrypted-media"></iframe>`;
-      document.getElementById("yt").removeAttribute('aria-hidden');
-      musicBtn.textContent = "⏸ Stop music";
-      musicBtn.setAttribute('aria-pressed', 'true');
-      playing = true;
-      return;
-    }
+  function applySearch() {
+    const q = document.getElementById("search").value.trim().toLowerCase();
+    const filtered = !q ? fullRows : fullRows.filter(r => String(r[0]).toLowerCase().includes(q));
+    renderTable(leaderboardHeaders, filtered, showPlayer);
   }
 
-  try {
-    if (!playing) {
-      // Unmute and play (user gesture allows sound)
-      try { player.unMute(); } catch (e) { /* ignore */ }
-      try { player.playVideo(); } catch (e) { /* ignore */ }
-      document.getElementById("yt").removeAttribute('aria-hidden');
-      musicBtn.textContent = "⏸ Stop music";
-      musicBtn.setAttribute('aria-pressed', 'true');
-      playing = true;
-    } else {
-      try { player.pauseVideo(); } catch (e) { /* ignore */ }
-      musicBtn.textContent = "🔥 Intense music";
-      musicBtn.setAttribute('aria-pressed', 'false');
-      document.getElementById("yt").setAttribute('aria-hidden', 'true');
-      playing = false;
-    }
-  } catch (err) {
-    console.error('music toggle error', err);
+  function getCell(row, header, fallbackIndex) {
+    const i = lbIdx[header.toLowerCase()];
+    return i !== undefined ? row[i] : row[fallbackIndex];
   }
-});
+
+  function showPlayer(row) {
+    const player = String(getCell(row, "player", 0) || "").trim();
+    const c1 = String(getCell(row, "country 1", 5) || "").trim();
+    const c2 = String(getCell(row, "country 2", 6) || "").trim();
+    const c3 = String(getCell(row, "country 3", 7) || "").trim();
+    const fav = String(getCell(row, "favourite sport", 11) || "").trim();
+
+    const gold = toNumber(getCell(row, "gold", 1));
+    const silver = toNumber(getCell(row, "silver", 2));
+    const bronze = toNumber(getCell(row, "bronze", 3));
+    const points = toNumber(getCell(row, "points", 4));
+    const bonus = toNumber(getCell(row, "bonus", 12));
+    const total = toNumber(getCell(row, "total", 13));
+
+    const countries = [c1,c2,c3].filter(Boolean);
+    const favLower = fav.toLowerCase();
+
+    // Collect all medal events for this player's countries
+    const events = medalLog
+      .filter(m => countries.includes(m.country))
+      .map(m => {
+        const base = medalPoints(m.medal);
+        const isBonus = favLower && m.sport.toLowerCase() === favLower;
+        const extra = isBonus ? base : 0; // "double medals" => add base again
+        return { ...m, base, extra, total: base + extra };
+      })
+      .sort((a,b) => String(b.date).localeCompare(String(a.date)));
+
+    const eventRows = events.length ? events.map(e => `
+      <tr>
+        <td>${escapeHtml(e.date)}</td>
+        <td>${escapeHtml(e.sport)}</td>
+        <td>${escapeHtml(e.event || "")}</td>
+        <td>${escapeHtml(e.country)}</td>
+        <td>${escapeHtml(e.medal)}</td>
+        <td class="num">${e.base}</td>
+        <td class="num">${e.extra}</td>
+        <td class="num">${e.total}</td>
+      </tr>
+    `).join("") : `<tr><td colspan="8" class="small">No medals recorded yet for this player’s countries.</td></tr>`;
+
+    const overlay = document.getElementById("overlay");
+    const drawer = document.getElementById("drawer");
+
+    drawer.innerHTML = `
+      <div class="closeRow">
+        <h2>${escapeHtml(player)}</h2>
+        <button class="closeBtn" id="closeBtn">Close</button>
+      </div>
+
+      <div class="meta">
+        ${countries.map(c => `<span class="tag">${escapeHtml(c)}</span>`).join("")}
+        <span class="tag">Fav sport: <strong>${escapeHtml(fav || "—")}</strong></span>
+      </div>
+
+      <div class="kpi">
+        <div class="card"><div class="big">${gold}-${silver}-${bronze}</div><div class="lbl">Medals (G-S-B)</div></div>
+        <div class="card"><div class="big">${points}</div><div class="lbl">Base points</div></div>
+        <div class="card"><div class="big">${bonus} → ${total}</div><div class="lbl">Bonus → Total</div></div>
+      </div>
+
+      <div class="sectionTitle">Per-event breakdown</div>
+      <div class="small">Base points: Gold=3, Silver=2, Bronze=1. Bonus points are added again when Sport = Favourite sport.</div>
+
+      <table style="width:100%; border-collapse: collapse; margin-top: 8px;">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Sport</th>
+            <th>Event</th>
+            <th>Country</th>
+            <th>Medal</th>
+            <th class="num">Base</th>
+            <th class="num">Bonus</th>
+            <th class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody>${eventRows}</tbody>
+      </table>
+    `;
+
+    overlay.style.display = "block";
+    drawer.style.display = "block";
+
+    document.getElementById("closeBtn").addEventListener("click", closeDrawer);
+    overlay.addEventListener("click", closeDrawer, { once: true });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); }, { once: true });
+  }
+
+  function closeDrawer() {
+    document.getElementById("overlay").style.display = "none";
+    const drawer = document.getElementById("drawer");
+    drawer.style.display = "none";
+    drawer.innerHTML = "";
+  }
+
+  document.getElementById("refresh").addEventListener("click", loadAll);
+  document.getElementById("search").addEventListener("input", applySearch);
+
+  loadAll();
+  setInterval(loadAll, 60_000);
 </script>
 </body>
 </html>
