@@ -15,13 +15,19 @@
       background-attachment: fixed;
       background-repeat: no-repeat;
     }
+    .content-wrapper {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 24px;
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+    }
     h1 { margin: 0 0 6px 0; }
     .sub { color: #555; margin: 0 0 18px 0; }
     .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 10px 0 18px; }
     input { padding: 10px; border: 1px solid #ddd; border-radius: 10px; min-width: 260px; }
     button { padding: 10px 12px; border: 1px solid #ddd; background: #fff; border-radius: 10px; cursor: pointer; }
     button:hover { background: #f6f6f6; }
-    table { border-collapse: collapse; width: 100%; }
+    table { border-collapse: collapse; width: 100%; background: white; }
     th, td { border-bottom: 1px solid #eee; padding: 10px 8px; text-align: left; }
     th { font-weight: 650; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -47,21 +53,24 @@
     .card .lbl { font-size: 12px; color:#666; }
     .sectionTitle { margin: 14px 0 8px; font-size: 14px; color:#555; font-weight: 650; }
     .small { font-size: 12px; color:#666; }
+    .flag { font-size: 1.2em; margin-right: 6px; }
   </style>
 </head>
 <body>
-  <h1>Office Winter Olympics Sweepstake</h1>
-  <p class="sub">
-    Live leaderboard (auto-refreshing). <span id="status" class="pill">Loading…</span>
-  </p>
+  <div class="content-wrapper">
+    <h1>Office Winter Olympics Sweepstake</h1>
+    <p class="sub">
+      Live leaderboard (auto-refreshing). <span id="status" class="pill">Loading…</span>
+    </p>
 
-  <div class="row">
-    <input id="search" placeholder="Search player…" />
-    <button id="refresh">Refresh now</button>
-    <span id="updated" class="muted"></span>
+    <div class="row">
+      <input id="search" placeholder="Search player…" />
+      <button id="refresh">Refresh now</button>
+      <span id="updated" class="muted"></span>
+    </div>
+
+    <table id="tbl"></table>
   </div>
-
-  <table id="tbl"></table>
 
   <div id="overlay" class="overlay"></div>
   <div id="drawer" class="drawer"></div>
@@ -78,6 +87,15 @@
   const MEDALLOG_CSV_URL    = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTv_B6jdgEx4q3c9uhSISHuVdhUfubFMblfU0FJXop_rv7jniIO_y44H-ARvrjassAOOi0xhDIgxMYW/pub?gid=1029591436&single=true&output=csv";
 
   const withNoCache = (url) => url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+
+  // Convert ISO country code to flag emoji
+  function isoToFlag(iso) {
+    if (!iso || iso.length !== 2) return "";
+    return String.fromCodePoint(
+      0x1F1E6 + iso.charCodeAt(0) - 65,
+      0x1F1E6 + iso.charCodeAt(1) - 65
+    );
+  }
 
   function parseCSV(text) {
     const rows = [];
@@ -145,8 +163,18 @@
       tr.addEventListener("click", () => onRowClick(r));
       r.forEach((c, idx) => {
         const td = document.createElement("td");
-        td.textContent = c;
-        if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(headers[idx])) td.classList.add("num");
+        const header = headers[idx];
+        
+        // Display flags for Country columns with ISO codes
+        if (["Country 1", "Country 2", "Country 3"].includes(header)) {
+          const isoIdx = lbIdx[header.replace("Country", "ISO").trim().toLowerCase()];
+          const isoCode = isoIdx !== undefined ? String(r[isoIdx]).trim().toUpperCase() : "";
+          td.innerHTML = isoToFlag(isoCode) + " " + escapeHtml(c);
+        } else {
+          td.textContent = c;
+        }
+        
+        if (["Gold","Silver","Bronze","Points","Bonus","Total"].includes(header)) td.classList.add("num");
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -180,12 +208,14 @@
     const iEvent = headers.indexOf("event");
     const iMedal = headers.indexOf("medal");
     const iCountry = headers.indexOf("country");
+    const iISO = headers.indexOf("iso");
 
     const dateIdx = iDate >= 0 ? iDate : (iTimestamp >= 0 ? iTimestamp : 0);
     const sportIdx = iSport >= 0 ? iSport : 1;
     const eventIdx = iEvent >= 0 ? iEvent : 2;
     const medalIdx = iMedal >= 0 ? iMedal : 3;
     const countryIdx = iCountry >= 0 ? iCountry : 4;
+    const isoIdx = iISO >= 0 ? iISO : 5;
 
     return rows.slice(1)
       .filter(r => String(r[sportIdx] || "").trim() && String(r[countryIdx] || "").trim() && String(r[medalIdx] || "").trim())
@@ -195,6 +225,7 @@
         event: String(r[eventIdx] || "").trim(),
         medal: String(r[medalIdx] || "").trim(),
         country: String(r[countryIdx] || "").trim(),
+        iso: String(r[isoIdx] || "").trim(),
       }));
   }
 
@@ -261,6 +292,9 @@
     const c1 = String(getCell(row, "country 1", 5) || "").trim();
     const c2 = String(getCell(row, "country 2", 6) || "").trim();
     const c3 = String(getCell(row, "country 3", 7) || "").trim();
+    const iso1 = String(getCell(row, "iso1", 8) || "").trim().toUpperCase();
+    const iso2 = String(getCell(row, "iso2", 9) || "").trim().toUpperCase();
+    const iso3 = String(getCell(row, "iso3", 10) || "").trim().toUpperCase();
     const fav = String(getCell(row, "favourite sport", 11) || "").trim();
 
     const gold = toNumber(getCell(row, "gold", 1));
@@ -270,32 +304,40 @@
     const bonus = toNumber(getCell(row, "bonus", 12));
     const total = toNumber(getCell(row, "total", 13));
 
-    const countries = [c1,c2,c3].filter(Boolean);
+    const countries = [
+      { name: c1, iso: iso1 },
+      { name: c2, iso: iso2 },
+      { name: c3, iso: iso3 }
+    ].filter(c => c.name);
     const favLower = fav.toLowerCase();
 
     // Collect all medal events for this player's countries
     const events = medalLog
-      .filter(m => countries.includes(m.country))
+      .filter(m => countries.some(c => m.country.toLowerCase() === c.name.toLowerCase()))
       .map(m => {
         const base = medalPoints(m.medal);
         const isBonus = favLower && m.sport.toLowerCase() === favLower;
-        const extra = isBonus ? base : 0; // "double medals" => add base again
+        const extra = isBonus ? base : 0;
         return { ...m, base, extra, total: base + extra };
       })
       .sort((a,b) => String(b.date).localeCompare(String(a.date)));
 
-    const eventRows = events.length ? events.map(e => `
-      <tr>
-        <td>${escapeHtml(e.date)}</td>
-        <td>${escapeHtml(e.sport)}</td>
-        <td>${escapeHtml(e.event || "")}</td>
-        <td>${escapeHtml(e.country)}</td>
-        <td>${escapeHtml(e.medal)}</td>
-        <td class="num">${e.base}</td>
-        <td class="num">${e.extra}</td>
-        <td class="num">${e.total}</td>
-      </tr>
-    `).join("") : `<tr><td colspan="8" class="small">No medals recorded yet for this player's countries.</td></tr>`;
+    const eventRows = events.length ? events.map(e => {
+      const countryInfo = countries.find(c => c.name.toLowerCase() === e.country.toLowerCase());
+      const flag = countryInfo ? isoToFlag(countryInfo.iso) : "";
+      return `
+        <tr>
+          <td>${escapeHtml(e.date)}</td>
+          <td>${escapeHtml(e.sport)}</td>
+          <td>${escapeHtml(e.event || "")}</td>
+          <td>${flag} ${escapeHtml(e.country)}</td>
+          <td>${escapeHtml(e.medal)}</td>
+          <td class="num">${e.base}</td>
+          <td class="num">${e.extra}</td>
+          <td class="num">${e.total}</td>
+        </tr>
+      `;
+    }).join("") : `<tr><td colspan="8" class="small">No medals recorded yet for this player's countries.</td></tr>`;
 
     const overlay = document.getElementById("overlay");
     const drawer = document.getElementById("drawer");
@@ -307,7 +349,7 @@
       </div>
 
       <div class="meta">
-        ${countries.map(c => `<span class="tag">${escapeHtml(c)}</span>`).join("")}
+        ${countries.map(c => `<span class="tag">${isoToFlag(c.iso)} ${escapeHtml(c.name)}</span>`).join("")}
         <span class="tag">Fav sport: <strong>${escapeHtml(fav || "—")}</strong></span>
       </div>
 
