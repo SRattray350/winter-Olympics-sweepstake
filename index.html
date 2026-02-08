@@ -53,7 +53,14 @@
     .card .lbl { font-size: 12px; color:#666; }
     .sectionTitle { margin: 14px 0 8px; font-size: 14px; color:#555; font-weight: 650; }
     .small { font-size: 12px; color:#666; }
-    .flag { font-size: 1.2em; margin-right: 6px; }
+
+    /* Force emoji-capable fonts for flags (fixes desktop showing LT/ZA letters) */
+    .flag-emoji {
+      font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
+      font-size: 1.2em;
+      line-height: 1;
+      margin-right: 6px;
+    }
   </style>
 </head>
 <body>
@@ -220,7 +227,7 @@
           const n = hLower.endsWith("1") ? "1" : (hLower.endsWith("2") ? "2" : "3");
           const isoIdx = lbIdx["iso" + n];
           const isoCode = isoIdx !== undefined ? String(r[isoIdx]).trim().toUpperCase() : "";
-          td.innerHTML = isoToFlag(isoCode) + " " + escapeHtml(cell);
+          td.innerHTML = `<span class="flag-emoji">${escapeHtml(isoToFlag(isoCode))}</span>${escapeHtml(cell)}`;
         } else {
           td.textContent = cell;
         }
@@ -310,7 +317,6 @@
     fullRows = data;
 
     // Dense ranking by distinct score keys:
-    // score1 -> rank 1 (gold), next distinct score -> rank 2 (silver), next -> rank 3 (bronze)
     positionByPlayer = {};
     topMedalsByPlayer = {};
     const medalsByRank = { 1: "🥇", 2: "🥈", 3: "🥉" };
@@ -401,7 +407,7 @@
           <td>${escapeHtml(e.date)}</td>
           <td>${escapeHtml(e.sport)}</td>
           <td>${escapeHtml(e.event || "")}</td>
-          <td>${flag} ${escapeHtml(e.country)}</td>
+          <td><span class="flag-emoji">${escapeHtml(flag)}</span>${escapeHtml(e.country)}</td>
           <td>${escapeHtml(e.medal)}</td>
           <td class="num">${e.base}</td>
           <td class="num">${e.extra}</td>
@@ -425,7 +431,7 @@
 
       <div class="meta">
         <span class="tag">Position: <strong>${escapeHtml(posText)}</strong> ${medal ? medal : ""}</span>
-        ${countries.map(c => `<span class="tag">${isoToFlag(c.iso)} ${escapeHtml(c.name)}</span>`).join("")}
+        ${countries.map(c => `<span class="tag"><span class="flag-emoji">${escapeHtml(isoToFlag(c.iso))}</span>${escapeHtml(c.name)}</span>`).join("")}
         <span class="tag">Fav sport: <strong>${escapeHtml(fav || "—")}</strong></span>
       </div>
 
