@@ -339,30 +339,25 @@
 
       fullRows = data;
 
-      // Dense ranking by distinct score keys:
+      // ✅ Dense ranking by TOTAL ONLY:
+      // Players with the same TOTAL share the same position (e.g., 3rd + 3rd).
       positionByPlayer = {};
       topMedalsByPlayer = {};
       const medalsByRank = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
       let rank = 0;
-      let lastKey = null;
+      let lastTotal = null;
 
       for (let i = 0; i < fullRows.length; i++) {
         const row = fullRows[i];
         const playerName = String(row[lbIdx["player"] ?? 0] || "").trim();
         if (!playerName) continue;
 
-        const key = [
-          toNumber(row[lbIdx["total"] ?? (leaderboardHeaders.length-1)]),
-          toNumber(row[lbIdx["points"] ?? 4]),
-          toNumber(row[lbIdx["gold"] ?? 1]),
-          toNumber(row[lbIdx["silver"] ?? 2]),
-          toNumber(row[lbIdx["bronze"] ?? 3])
-        ].join("|");
+        const total = toNumber(row[lbIdx["total"] ?? (leaderboardHeaders.length - 1)]);
 
-        if (lastKey === null || key !== lastKey) {
+        if (lastTotal === null || total !== lastTotal) {
           rank += 1;
-          lastKey = key;
+          lastTotal = total;
         }
 
         positionByPlayer[playerName] = rank;
